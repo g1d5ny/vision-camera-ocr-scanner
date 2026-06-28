@@ -44,18 +44,34 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "vision-camera",
+    "vision-camera-plugin",
+    "frame-processor",
+    "ocr",
+    "scanner",
+    "text-recognition",
+    "card-scanner",
+    "credit-card",
+    "business-card",
+    "receipt",
+    "mrz",
+    "passport",
+    "nitro",
+    "on-device",
+    "mlkit",
+    "vision"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jieonist/vision-camera-ocr-scanner.git"
+    "url": "git+https://github.com/g1d5ny/vision-camera-ocr-scanner.git"
   },
-  "author": "jieonist (https://github.com/jieonist)",
+  "author": "jieonist (https://github.com/g1d5ny)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jieonist/vision-camera-ocr-scanner/issues"
+    "url": "https://github.com/g1d5ny/vision-camera-ocr-scanner/issues"
   },
-  "homepage": "https://github.com/jieonist/vision-camera-ocr-scanner#readme",
+  "homepage": "https://github.com/g1d5ny/vision-camera-ocr-scanner#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
