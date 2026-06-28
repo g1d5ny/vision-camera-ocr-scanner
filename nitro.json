@@ -1,0 +1,23 @@
+{
+  "cxxNamespace": ["jieonist_visioncameraocrscanner"],
+  "ios": {
+    "iosModuleName": "VisionCameraOcrScanner"
+  },
+  "android": {
+    "androidNamespace": ["jieonist","visioncameraocrscanner"],
+    "androidCxxLibName": "jieonist_visioncameraocrscanner"
+  },
+  "autolinking": {
+    "VisionCameraOcrScanner": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "VisionCameraOcrScanner"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "VisionCameraOcrScanner"
+      }
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}
