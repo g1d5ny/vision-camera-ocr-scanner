@@ -67,7 +67,7 @@ export function PassportScanner() {
 ## 로드맵
 
 - [x] **MRZ**(여권 / 신분증) — iOS에서 동작
-- [ ] 신용카드 (번호 + 만료일, Luhn)
+- [x] **신용카드** (번호 + 만료일 + 브랜드, Luhn) — iOS에서 동작
 - [ ] 명함 → 연락처
 - [ ] 영수증 (상호 / 날짜 / 합계)
 - [ ] Android 네이티브 OCR (ML Kit)

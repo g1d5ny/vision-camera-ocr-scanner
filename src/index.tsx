@@ -6,6 +6,8 @@ import type {
 
 export { parseMrz, extractMrzLines } from './parseMrz';
 export type { MrzResult } from './parseMrz';
+export { parseCard, detectBrand } from './parseCard';
+export type { CardResult } from './parseCard';
 export type { OcrResult, VisionCameraOcrScanner };
 
 let scanner: VisionCameraOcrScanner | null = null;

@@ -67,7 +67,7 @@ The native side does OCR only (returns text lines); parsing/structuring runs in 
 ## Roadmap
 
 - [x] **MRZ** (passport / ID) — working on iOS
-- [ ] Credit card (number + expiry, Luhn)
+- [x] **Credit card** (number + expiry + brand, Luhn) — working on iOS
 - [ ] Business card → contact
 - [ ] Receipt (merchant / date / total)
 - [ ] Android native OCR (ML Kit)

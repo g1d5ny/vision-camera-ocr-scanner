@@ -29,6 +29,7 @@ export default defineConfig({
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
           { text: 'MRZ', link: '/guide/mrz' },
+          { text: 'Card', link: '/guide/card' },
         ],
         sidebar: [
           {
@@ -36,6 +37,7 @@ export default defineConfig({
             items: [
               { text: 'Getting Started', link: '/guide/getting-started' },
               { text: 'MRZ Scanning', link: '/guide/mrz' },
+              { text: 'Credit Card Scanning', link: '/guide/card' },
             ],
           },
         ],
@@ -49,6 +51,7 @@ export default defineConfig({
         nav: [
           { text: '가이드', link: '/ko/guide/getting-started' },
           { text: 'MRZ', link: '/ko/guide/mrz' },
+          { text: '카드', link: '/ko/guide/card' },
         ],
         sidebar: [
           {
@@ -56,6 +59,7 @@ export default defineConfig({
             items: [
               { text: '시작하기', link: '/ko/guide/getting-started' },
               { text: 'MRZ 스캔', link: '/ko/guide/mrz' },
+              { text: '신용카드 스캔', link: '/ko/guide/card' },
             ],
           },
         ],

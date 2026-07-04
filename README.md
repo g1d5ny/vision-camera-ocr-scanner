@@ -4,7 +4,7 @@ On-device, structured **OCR scanner** for React Native — scan a **credit card,
 
 Built as a [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) frame processor plugin on top of **Apple Vision** (iOS) and **Google ML Kit** (Android), powered by [Nitro Modules](https://nitro.margelo.com/) for zero-copy, high-FPS frame processing.
 
-> 🚧 **Status: early development.** The API below is the target design and is not all implemented / published yet. See the [Roadmap](#roadmap). Feedback welcome.
+> 🚧 **Status: early development (iOS).** **MRZ (passport) and credit-card** scanning work today; business-card and receipt modes are on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
 
 ## Why this library
 
@@ -32,12 +32,12 @@ Not trying to be a paid enterprise KYC SDK (BlinkID, Dynamsoft, Scanbot). This i
 ## Installation
 
 ```sh
-npm install @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-worklets-core
+npm install @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-worklets react-native-vision-camera-worklets
 ```
 
 ```sh
 # or with yarn
-yarn add @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-worklets-core
+yarn add @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-worklets react-native-vision-camera-worklets
 ```
 
 iOS:
@@ -66,77 +66,69 @@ npx expo prebuild && npx expo run:ios   # or run:android
 
 ## Usage
 
-Run the scanner inside a VisionCamera frame processor and pick a `mode`:
+The native side does **OCR only** — `scan(frame)` returns recognized text lines. You then structure them on the JS thread with `parseMrz` / `parseCard` (the parsers aren't worklet-safe). This keeps every mode on one native call, with no extra native dependency.
 
 ```tsx
-import { useRef } from 'react';
-import { Camera, useCameraDevice, useFrameProcessor } from 'react-native-vision-camera';
-import { scanOCR, type OcrResult } from '@jieonist/vision-camera-ocr-scanner';
-import { Worklets } from 'react-native-worklets-core';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useFrameOutput,
+} from 'react-native-vision-camera';
+import { scheduleOnRN } from 'react-native-worklets';
+import {
+  getOcrScanner,
+  parseCard,
+  type CardResult,
+} from '@jieonist/vision-camera-ocr-scanner';
 
 export function CardScanner() {
+  const { hasPermission } = useCameraPermission();
   const device = useCameraDevice('back');
+  const scanner = useMemo(() => getOcrScanner(), []);
+  const [card, setCard] = useState<CardResult | null>(null);
 
-  const onResult = Worklets.createRunOnJS((result: OcrResult) => {
-    if (result.card) {
-      console.log(result.card.number, result.card.expiry);
-    }
+  const onLines = useCallback((lines: string[]) => {
+    const parsed = parseCard(lines); // or parseMrz(lines)
+    if (parsed?.number) setCard(parsed);
+  }, []);
+
+  const frameOutput = useFrameOutput({
+    pixelFormat: 'yuv',
+    onFrame: (frame) => {
+      'worklet';
+      const ocr = scanner.scan(frame); // native OCR → { text, lines }
+      if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines);
+      frame.dispose();
+    },
   });
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    const result = scanOCR(frame, { mode: 'card' });
-    if (result.card) onResult(result);
-  }, [onResult]);
-
-  if (device == null) return null;
+  if (!hasPermission || device == null) return null;
   return (
-    <Camera
-      style={{ flex: 1 }}
-      device={device}
-      isActive
-      frameProcessor={frameProcessor}
-      pixelFormat="yuv"
-    />
+    <Camera style={{ flex: 1 }} device={device} isActive outputs={[frameOutput]} />
   );
 }
 ```
 
-### Modes
+### Parsers
 
-| `mode` | Returns |
-|---|---|
-| `'text'` | raw recognized text + blocks |
-| `'card'` | `{ number, expiry?, holder? }` (Luhn-validated) |
-| `'businessCard'` | `{ name?, company?, title?, phones[], emails[], website?, address? }` |
-| `'receipt'` | `{ merchant?, date?, total?, currency? }` |
-| `'mrz'` | passport/ID fields, checksum-validated |
+| Function | Returns | Self-validation |
+|---|---|---|
+| `parseMrz(lines)` | `MrzResult \| null` — passport/ID fields | ICAO 9303 check digits |
+| `parseCard(lines)` | `CardResult \| null` — number, brand, expiry, holder | Luhn checksum |
+| `detectBrand(number)` | brand string from a known card number | — |
 
-### Result type
+See the docs for the full [`MrzResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz) and [`CardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card) shapes.
+
+### Native result type
 
 ```ts
-type OcrMode = 'text' | 'card' | 'businessCard' | 'receipt' | 'mrz';
-
 interface OcrResult {
-  /** Raw recognized text (always present). */
+  /** Recognized text joined with newlines. */
   text: string;
-
-  card?: { number: string; expiry?: string; holder?: string };
-
-  businessCard?: {
-    name?: string; company?: string; title?: string;
-    phones: string[]; emails: string[]; website?: string; address?: string;
-  };
-
-  receipt?: { merchant?: string; date?: string; total?: number; currency?: string };
-
-  mrz?: {
-    documentType: string; documentNumber: string;
-    firstName?: string; lastName?: string; nationality?: string;
-    birthDate?: string; expiryDate?: string; sex?: string;
-    /** true when the MRZ check digits validate. */
-    valid: boolean;
-  };
+  /** Recognized lines, ordered top-to-bottom. Feed these to parseMrz / parseCard. */
+  lines: string[];
 }
 ```
 
@@ -162,8 +154,8 @@ Add the platform strings:
 
 ## Roadmap
 
-- [ ] MRZ mode (first — checksum self-validates)
-- [ ] Credit card mode (number + expiry, Luhn)
+- [x] MRZ mode (checksum self-validates) — iOS
+- [x] Credit card mode (number + expiry + brand, Luhn) — iOS
 - [ ] Business card → contact
 - [ ] Receipt → merchant / date / total
 - [ ] Expo config plugin
