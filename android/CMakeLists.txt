@@ -16,9 +16,14 @@ include_directories("src/main/cpp" "../cpp")
 
 find_library(LOG_LIB log)
 
+# VisionCamera prefab: the nitrogen-generated spec #includes
+# <VisionCamera/HybridFrameSpec.hpp>, so we must link VisionCamera's C++ prefab.
+find_package(react-native-vision-camera REQUIRED CONFIG)
+
 # Link all libraries together
 target_link_libraries(
         ${PACKAGE_NAME}
         ${LOG_LIB}
         android # <-- Android core
+        react-native-vision-camera::VisionCamera # <-- VisionCamera Frame C++ types
 )
