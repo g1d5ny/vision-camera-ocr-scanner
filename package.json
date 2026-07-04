@@ -40,7 +40,10 @@
     "nitrogen": "nitrogen",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "test": "jest"
+    "test": "jest",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "keywords": [
     "react-native",
@@ -102,7 +105,8 @@
     "react-native-vision-camera-worklets": "^5.0.11",
     "react-native-worklets": "^0.10.0",
     "turbo": "^2.9.16",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitepress": "^1.6.4"
   },
   "peerDependencies": {
     "react": "*",

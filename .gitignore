@@ -89,3 +89,7 @@ nitrogen/
 CLAUDE.md
 .claude/
 TODO.md
+
+# VitePress docs build
+docs/.vitepress/dist
+docs/.vitepress/cache

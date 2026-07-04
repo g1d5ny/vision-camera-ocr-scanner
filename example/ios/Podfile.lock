@@ -1794,7 +1794,7 @@ PODS:
     - React-utils (= 0.85.0)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.85.0)
-  - RNWorklets (0.10.0):
+  - RNWorklets (0.10.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1816,33 +1816,10 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNWorklets/apple (= 0.10.0)
-    - RNWorklets/common (= 0.10.0)
+    - RNWorklets/apple (= 0.10.1)
+    - RNWorklets/common (= 0.10.1)
     - Yoga
-  - RNWorklets/apple (0.10.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-Core-prebuilt
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - RNWorklets/common (0.10.0):
+  - RNWorklets/apple (0.10.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1865,7 +1842,30 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - VisionCamera (5.0.11):
+  - RNWorklets/common (0.10.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - VisionCamera (5.1.0):
     - hermes-engine
     - NitroImage
     - NitroModules
@@ -1915,7 +1915,7 @@ PODS:
     - ReactNativeDependencies
     - VisionCamera
     - Yoga
-  - VisionCameraWorklets (5.0.11):
+  - VisionCameraWorklets (5.1.0):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -2261,11 +2261,11 @@ SPEC CHECKSUMS:
   ReactCodegen: ab01ebfffac5cda9140204eb872ed97c15df225f
   ReactCommon: 47ef95b0920948a0b54d7439f7452501eeeac071
   ReactNativeDependencies: 35dc85b06ea158b00760fecd9f22c84727513826
-  RNWorklets: cfa6ca17fcc5ea7b6c1e391fb1c7c980e2d69407
-  VisionCamera: 14a287980fd62201131db61d5e5710a59b2b1b0e
+  RNWorklets: ca7e0a49681a74e09f09e389aefd9e453fa0079b
+  VisionCamera: 73a21a8ed0feecd7c579d79ae25eaf8c3e63c767
   VisionCameraOcrScanner: fe20367df494539a9bb189a127174a71b9ecd38a
-  VisionCameraWorklets: c0ce8f63bfc871fc560217489b966ba298ed7d64
-  Yoga: cc155241ea30670878e270d52d74cf29487c4bbb
+  VisionCameraWorklets: 0f70d789dfce3d2efc67db7e106e2f4a32bbe72e
+  Yoga: e83c3121d079541e69f3c5c623faaaf933fb5812
 
 PODFILE CHECKSUM: 9f79b67d8d4dd7adb8122f01ef264acdd7ebc70c
 
