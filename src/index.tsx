@@ -8,6 +8,8 @@ export { parseMrz, extractMrzLines } from './parseMrz';
 export type { MrzResult } from './parseMrz';
 export { parseCard, detectBrand } from './parseCard';
 export type { CardResult } from './parseCard';
+export { detectDocument } from './detectDocument';
+export type { DetectedDocument } from './detectDocument';
 export type { OcrResult, VisionCameraOcrScanner };
 
 let scanner: VisionCameraOcrScanner | null = null;

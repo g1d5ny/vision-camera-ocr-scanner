@@ -64,6 +64,20 @@ export function PassportScanner() {
 
 The native side does OCR only (returns text lines); parsing/structuring runs in JS (the `mrz` parser isn't worklet-safe). See [MRZ Scanning](/guide/mrz) for the result shape.
 
+## Auto-detect (scan anything)
+
+When you don't know the document type up front, `detectDocument(lines)` runs both parsers and returns the winner:
+
+```ts
+import { detectDocument } from '@jieonist/vision-camera-ocr-scanner';
+
+const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | null
+if (doc?.type === 'mrz') console.log(doc.data.documentNumber);
+else if (doc?.type === 'card') console.log(doc.data.numberFormatted);
+```
+
+MRZ wins ambiguous ties (its `<<<` structure is far more specific than a bare number, and its checksum is stronger than Luhn). When your screen already knows the type, prefer the specific parser — fewer false positives and a type-specific guide box.
+
 ## Roadmap
 
 - [x] **MRZ** (passport / ID) — working on iOS

@@ -11,11 +11,12 @@ import {
   getOcrScanner,
   parseMrz,
   parseCard,
+  detectDocument,
   type MrzResult,
   type CardResult,
 } from '@jieonist/vision-camera-ocr-scanner';
 
-type Mode = 'mrz' | 'card';
+type Mode = 'mrz' | 'card' | 'auto';
 
 export default function App() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -31,9 +32,13 @@ export default function App() {
       if (mode === 'mrz') {
         const parsed = parseMrz(lines);
         if (parsed?.documentNumber != null) setMrz((prev) => prev ?? parsed);
-      } else {
+      } else if (mode === 'card') {
         const parsed = parseCard(lines);
         if (parsed?.number != null) setCard((prev) => prev ?? parsed);
+      } else {
+        const doc = detectDocument(lines);
+        if (doc?.type === 'mrz') setMrz((prev) => prev ?? doc.data);
+        else if (doc?.type === 'card') setCard((prev) => prev ?? doc.data);
       }
     },
     [mode]
@@ -133,7 +138,9 @@ export default function App() {
   const hint =
     mode === 'mrz'
       ? '여권 아래쪽 MRZ를 비춰주세요'
-      : '카드 번호가 잘 보이게 비춰주세요';
+      : mode === 'card'
+        ? '카드 번호가 잘 보이게 비춰주세요'
+        : '여권 MRZ 또는 카드를 비춰주세요';
   return (
     <View style={styles.container}>
       <Camera
@@ -144,14 +151,19 @@ export default function App() {
       />
       <View style={styles.tabs}>
         <ModeTab
-          label="여권 MRZ"
+          label="여권"
           active={mode === 'mrz'}
           onPress={() => switchMode('mrz')}
         />
         <ModeTab
-          label="신용카드"
+          label="카드"
           active={mode === 'card'}
           onPress={() => switchMode('card')}
+        />
+        <ModeTab
+          label="자동"
+          active={mode === 'auto'}
+          onPress={() => switchMode('auto')}
         />
       </View>
       <View style={styles.guide}>

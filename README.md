@@ -119,7 +119,10 @@ export function CardScanner() {
 |---|---|---|
 | `parseMrz(lines)` | `MrzResult \| null` — passport/ID fields | ICAO 9303 check digits |
 | `parseCard(lines)` | `CardResult \| null` — number, brand, expiry, holder | Luhn checksum |
+| `detectDocument(lines)` | `DetectedDocument \| null` — auto-detect MRZ **or** card | runs both; validates |
 | `detectBrand(number)` | brand string from a known card number | — |
+
+For a "scan any document" flow, `detectDocument(lines)` runs both parsers and returns `{ type: 'mrz' | 'card', valid, data }` (MRZ wins ambiguous ties). When your screen already knows the type, call the specific parser — fewer false positives and a mode-specific guide box.
 
 See the docs for the full [`MrzResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz) and [`CardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card) shapes.
 

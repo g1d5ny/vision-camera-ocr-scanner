@@ -64,6 +64,20 @@ export function PassportScanner() {
 
 네이티브 쪽은 OCR만 수행하고(텍스트 줄 반환), 파싱/구조화는 JS에서 실행됩니다(`mrz` 파서는 worklet-safe가 아닙니다). 결과 형태는 [MRZ 스캔](/ko/guide/mrz)을 참고하세요.
 
+## 자동 인식 (아무 문서나 스캔)
+
+문서 종류를 미리 모를 때는 `detectDocument(lines)`가 두 파서를 다 돌려 승자를 반환합니다:
+
+```ts
+import { detectDocument } from '@jieonist/vision-camera-ocr-scanner';
+
+const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | null
+if (doc?.type === 'mrz') console.log(doc.data.documentNumber);
+else if (doc?.type === 'card') console.log(doc.data.numberFormatted);
+```
+
+모호할 땐 MRZ가 우선입니다(`<<<` 구조가 단순 번호보다 훨씬 특정적이고, 체크섬이 Luhn보다 강함). 화면이 이미 문서 종류를 안다면 전용 파서를 쓰세요 — 오탐이 적고 종류별 가이드 박스를 줄 수 있습니다.
+
 ## 로드맵
 
 - [x] **MRZ**(여권 / 신분증) — iOS에서 동작
