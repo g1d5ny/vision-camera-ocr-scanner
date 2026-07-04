@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => min_ios_version_supported }
-  s.source       = { :git => "https://github.com/jieonist/vision-camera-ocr-scanner.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/g1d5ny/vision-camera-ocr-scanner.git", :tag => "#{s.version}" }
 
   s.source_files = [
     "ios/**/*.{swift}",
@@ -21,6 +21,9 @@ Pod::Spec.new do |s|
 
   s.dependency 'React-jsi'
   s.dependency 'React-callinvoker'
+  # Our Swift (and the nitrogen-generated Frame glue) `import VisionCamera`.
+  # VisionCamera transitively provides NitroImage (used by its Frame types).
+  s.dependency 'VisionCamera'
 
   load 'nitrogen/generated/ios/VisionCameraOcrScanner+autolinking.rb'
   add_nitrogen_files(s)
