@@ -109,4 +109,6 @@ android {
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation project(":react-native-nitro-modules")
+  // Kotlin (and nitrogen-generated) code references com.margelo.nitro.camera.HybridFrameSpec.
+  implementation project(":react-native-vision-camera")
 }
