@@ -4,6 +4,8 @@ On-device, structured **OCR scanner** for React Native — scan a **credit card,
 
 Built as a [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) frame processor plugin on top of **Apple Vision** (iOS) and **Google ML Kit** (Android), powered by [Nitro Modules](https://nitro.margelo.com/) for zero-copy, high-FPS frame processing.
 
+📖 **Documentation:** **https://g1d5ny.github.io/vision-camera-ocr-scanner/** ([한국어](https://g1d5ny.github.io/vision-camera-ocr-scanner/ko/))
+
 > 🚧 **Status: early development (iOS).** **MRZ (passport) and credit-card** scanning work today; business-card and receipt modes are on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
 
 ## Why this library
@@ -160,6 +162,14 @@ Add the platform strings:
 - [ ] Receipt → merchant / date / total
 - [ ] Expo config plugin
 - [ ] First npm release (`0.1.0`)
+
+## Documentation
+
+Full guides live at **https://g1d5ny.github.io/vision-camera-ocr-scanner/** (English) / **https://g1d5ny.github.io/vision-camera-ocr-scanner/ko/** (한국어):
+
+- [Getting Started](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/getting-started)
+- [MRZ Scanning](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz)
+- [Credit Card Scanning](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card)
 
 ## Contributing
 
