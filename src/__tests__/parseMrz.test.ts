@@ -62,4 +62,18 @@ describe('parseMrz', () => {
   it('returns null when there is no MRZ', () => {
     expect(parseMrz(['Hello world', 'just some text'])).toBeNull();
   });
+
+  it('picks the real MRZ pair even with an extra MRZ-width line around it', () => {
+    // A 44-char MRZ-charset line that is NOT a valid MRZ (OCR noise).
+    const junk = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGH';
+    expect(junk.length).toBe(44);
+
+    const before = parseMrz([junk, TD3_LINE_1, TD3_LINE_2]);
+    expect(before?.documentNumber).toBe('C01X00T47');
+    expect(before?.lastName).toBe('MUSTERMANN'); // name present => correct pair chosen
+
+    const after = parseMrz([TD3_LINE_1, TD3_LINE_2, junk]);
+    expect(after?.documentNumber).toBe('C01X00T47');
+    expect(after?.lastName).toBe('MUSTERMANN');
+  });
 });
