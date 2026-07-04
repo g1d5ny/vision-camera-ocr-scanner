@@ -1,0 +1,74 @@
+# 시작하기
+
+`@jieonist/vision-camera-ocr-scanner`는 React Native용 무료 온디바이스 OCR **구조화** 스캐너입니다. 카메라를 문서에 비추면 구조화된 데이터를 돌려줍니다 — [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) v5 프레임 프로세서를 [Nitro Modules](https://nitro.margelo.com/) 위에 얹어 만들었고, Apple Vision(iOS)과 Google ML Kit(Android)을 사용합니다.
+
+> 엔터프라이즈 KYC SDK가 아닙니다. 포지셔닝: 인디/소규모 앱을 위한 **무료 + 온디바이스 + 프라이버시 + 충분한 정확도**.
+
+## 요구사항
+
+- React Native **New Architecture**(Fabric + Nitro) — 필수.
+- `react-native-vision-camera` v5+, `react-native-worklets`, `react-native-vision-camera-worklets`.
+- iOS 15+ / Android(ML Kit).
+
+### 플랫폼
+
+| 플랫폼 | 지원 |
+| --- | --- |
+| Bare React Native (CLI) | ✅ |
+| Expo **dev build** / prebuild | ✅ (config plugin) |
+| Expo Go | ❌ (커스텀 네이티브 코드) |
+| Android | 🚧 스텁 (현재 iOS 전용) |
+
+## 설치
+
+```sh
+npm install @jieonist/vision-camera-ocr-scanner \
+  react-native-vision-camera react-native-nitro-modules \
+  react-native-worklets react-native-vision-camera-worklets
+cd ios && pod install
+```
+
+## 빠른 사용법
+
+```tsx
+import { useCallback, useMemo, useState } from 'react';
+import { Camera, useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
+import { scheduleOnRN } from 'react-native-worklets';
+import { getOcrScanner, parseMrz, type MrzResult } from '@jieonist/vision-camera-ocr-scanner';
+
+export function PassportScanner() {
+  const { hasPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
+  const scanner = useMemo(() => getOcrScanner(), []);
+  const [mrz, setMrz] = useState<MrzResult | null>(null);
+
+  const onLines = useCallback((lines: string[]) => {
+    const parsed = parseMrz(lines);
+    if (parsed?.documentNumber) setMrz(parsed);
+  }, []);
+
+  const frameOutput = useFrameOutput({
+    pixelFormat: 'yuv',
+    onFrame: (frame) => {
+      'worklet';
+      const ocr = scanner.scan(frame); // 네이티브 OCR
+      if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines); // JS 스레드에서 파싱
+      frame.dispose();
+    },
+  });
+
+  if (!hasPermission || device == null) return null;
+  return <Camera style={{ flex: 1 }} device={device} isActive outputs={[frameOutput]} />;
+}
+```
+
+네이티브 쪽은 OCR만 수행하고(텍스트 줄 반환), 파싱/구조화는 JS에서 실행됩니다(`mrz` 파서는 worklet-safe가 아닙니다). 결과 형태는 [MRZ 스캔](/ko/guide/mrz)을 참고하세요.
+
+## 로드맵
+
+- [x] **MRZ**(여권 / 신분증) — iOS에서 동작
+- [ ] 신용카드 (번호 + 만료일, Luhn)
+- [ ] 명함 → 연락처
+- [ ] 영수증 (상호 / 날짜 / 합계)
+- [ ] Android 네이티브 OCR (ML Kit)
+- [ ] Expo config plugin
