@@ -111,4 +111,11 @@ dependencies {
   implementation project(":react-native-nitro-modules")
   // Kotlin (and nitrogen-generated) code references com.margelo.nitro.camera.HybridFrameSpec.
   implementation project(":react-native-vision-camera")
+  // NativeFrame exposes an androidx.camera ImageProxy; vision-camera provides the
+  // runtime copy, we only need it on the compile classpath. Pinned to the exact
+  // camerax_version react-native-vision-camera 5.x ships, so compile and runtime
+  // API surfaces match — keep in sync when bumping the vision-camera peer dep.
+  compileOnly "androidx.camera:camera-core:1.7.0-alpha01"
+  // On-device text recognition (bundled Latin model).
+  implementation "com.google.mlkit:text-recognition:16.0.1"
 }
