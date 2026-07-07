@@ -1,51 +1,78 @@
+import {
+  createCardScanSession,
+  createMrzScanSession,
+  detectDocument,
+  getOcrScanner,
+  parseCard,
+  parseMrz,
+  type CardResult,
+  type MrzResult,
+} from '@jieonist/vision-camera-ocr-scanner';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   Camera,
+  CommonResolutions,
   useCameraDevice,
   useCameraPermission,
   useFrameOutput,
 } from 'react-native-vision-camera';
 import { scheduleOnRN } from 'react-native-worklets';
-import {
-  getOcrScanner,
-  parseMrz,
-  parseCard,
-  detectDocument,
-  type MrzResult,
-  type CardResult,
-} from '@jieonist/vision-camera-ocr-scanner';
 
 type Mode = 'mrz' | 'card' | 'auto';
 
 export default function App() {
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
+  // Force the main wide-angle camera: on multi-camera devices the default
+  // 'back' pick isn't always the lens best suited for close-up text.
+  const device = useCameraDevice('back', { physicalDevices: ['wide-angle'] });
   const scanner = useMemo(() => getOcrScanner(), []);
+  // Single frames misread; sessions accept only checksum-valid reads that
+  // repeat, and vote on uncheckable fields like names.
+  // requireChecksum: false so specimen passports (which carry dummy check
+  // digits) still demo the flow — the result badge shows 검증 실패 for them.
+  const mrzSession = useMemo(
+    () => createMrzScanSession({ requireChecksum: false }),
+    []
+  );
+  const cardSession = useMemo(() => createCardScanSession(), []);
   const [mode, setMode] = useState<Mode>('mrz');
   const [mrz, setMrz] = useState<MrzResult | null>(null);
   const [card, setCard] = useState<CardResult | null>(null);
 
-  // Capture the first readable document, then freeze (stop scanning).
+  // Capture the document once its session is confident, then freeze.
   const handleLines = useCallback(
     (lines: string[]) => {
+      let mrzParse: MrzResult | null = null;
+      let cardParse: CardResult | null = null;
       if (mode === 'mrz') {
-        const parsed = parseMrz(lines);
-        if (parsed?.documentNumber != null) setMrz((prev) => prev ?? parsed);
+        mrzParse = parseMrz(lines);
       } else if (mode === 'card') {
-        const parsed = parseCard(lines);
-        if (parsed?.number != null) setCard((prev) => prev ?? parsed);
+        cardParse = parseCard(lines);
       } else {
         const doc = detectDocument(lines);
-        if (doc?.type === 'mrz') setMrz((prev) => prev ?? doc.data);
-        else if (doc?.type === 'card') setCard((prev) => prev ?? doc.data);
+        if (doc?.type === 'mrz') mrzParse = doc.data;
+        else if (doc?.type === 'card') cardParse = doc.data;
+      }
+      if (mrzParse != null) {
+        const final = mrzSession.push(mrzParse);
+        if (final != null) setMrz((prev) => prev ?? final);
+      }
+      if (cardParse != null) {
+        const final = cardSession.push(cardParse);
+        if (final != null) setCard((prev) => prev ?? final);
       }
     },
-    [mode]
+    [mode, mrzSession, cardSession]
   );
 
   const frameOutput = useFrameOutput({
     pixelFormat: 'yuv',
+    // Default is HD_16_9 (720p) — too few pixels per glyph for document
+    // text. QHD_4_3 nearly doubles pixels-per-glyph vs FHD; the earlier
+    // frame corruption on the Galaxy Z Fold6 turned out to involve the zoom
+    // prop, so QHD is being re-tried without zoom.
+    targetResolution: CommonResolutions.QHD_4_3,
     onFrame: (frame) => {
       'worklet';
       const ocr = scanner.scan(frame);
@@ -57,15 +84,22 @@ export default function App() {
   });
 
   const reset = useCallback(() => {
+    mrzSession.reset();
+    cardSession.reset();
     setMrz(null);
     setCard(null);
-  }, []);
+  }, [mrzSession, cardSession]);
 
-  const switchMode = useCallback((next: Mode) => {
-    setMode(next);
-    setMrz(null);
-    setCard(null);
-  }, []);
+  const switchMode = useCallback(
+    (next: Mode) => {
+      mrzSession.reset();
+      cardSession.reset();
+      setMode(next);
+      setMrz(null);
+      setCard(null);
+    },
+    [mrzSession, cardSession]
+  );
 
   if (!hasPermission) {
     return (
@@ -257,7 +291,13 @@ const styles = StyleSheet.create({
     borderColor: '#22d3ee',
     borderRadius: 12,
   },
-  hint: { color: '#fff', fontSize: 15, marginTop: 16 },
+  hint: {
+    color: '#fff',
+    fontSize: 15,
+    marginTop: 16,
+    alignSelf: 'stretch',
+    textAlign: 'center',
+  },
 
   resultScreen: {
     flex: 1,
