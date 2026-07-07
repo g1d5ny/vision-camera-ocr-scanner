@@ -82,7 +82,6 @@ else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 
 - [x] **MRZ**(여권 / 신분증) — iOS & Android
 - [x] **신용카드** (번호 + 만료일 + 브랜드, Luhn) — iOS & Android
-- [x] Android 네이티브 OCR (ML Kit)
 - [ ] 명함 → 연락처
 - [ ] 영수증 (상호 / 날짜 / 합계)
 - [ ] Expo config plugin

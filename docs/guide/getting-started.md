@@ -82,7 +82,6 @@ MRZ wins ambiguous ties (its `<<<` structure is far more specific than a bare nu
 
 - [x] **MRZ** (passport / ID) — iOS & Android
 - [x] **Credit card** (number + expiry + brand, Luhn) — iOS & Android
-- [x] Android native OCR (ML Kit)
 - [ ] Business card → contact
 - [ ] Receipt (merchant / date / total)
 - [ ] Expo config plugin
