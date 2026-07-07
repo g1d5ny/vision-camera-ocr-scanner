@@ -15,7 +15,7 @@
 | Platform | Supported |
 | --- | --- |
 | Bare React Native (CLI) | ✅ |
-| Expo **dev build** / prebuild | ✅ (config plugin) |
+| Expo **dev build** / prebuild | ✅ (autolinking — a dedicated config plugin is on the [roadmap](#roadmap)) |
 | Expo Go | ❌ (custom native code) |
 | Android | ✅ (ML Kit) |
 

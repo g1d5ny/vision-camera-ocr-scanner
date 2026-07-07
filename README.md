@@ -28,7 +28,7 @@ Not trying to be a paid enterprise KYC SDK (BlinkID, Dynamsoft, Scanbot). This i
 | Platform | Supported |
 |---|---|
 | Bare React Native (CLI) | ✅ |
-| Expo **dev build** / prebuild | ✅ (config plugin) |
+| Expo **dev build** / prebuild | ✅ (autolinking — a dedicated config plugin is on the [roadmap](#roadmap)) |
 | Expo Go | ❌ (uses custom native code) |
 
 ## Installation
@@ -48,15 +48,14 @@ iOS:
 cd ios && pod install
 ```
 
-Expo (dev build):
+Expo (dev build) — this package needs no config plugin of its own (it autolinks); only vision-camera's plugin is required:
 
 ```js
 // app.json / app.config.js
 {
   "expo": {
     "plugins": [
-      ["react-native-vision-camera", { "cameraPermissionText": "Allow camera to scan documents" }],
-      "@jieonist/vision-camera-ocr-scanner"
+      ["react-native-vision-camera", { "cameraPermissionText": "Allow camera to scan documents" }]
     ]
   }
 }

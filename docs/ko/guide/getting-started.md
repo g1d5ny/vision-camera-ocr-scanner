@@ -15,7 +15,7 @@
 | 플랫폼 | 지원 |
 | --- | --- |
 | Bare React Native (CLI) | ✅ |
-| Expo **dev build** / prebuild | ✅ (config plugin) |
+| Expo **dev build** / prebuild | ✅ (autolinking — 전용 config plugin은 [로드맵](#로드맵)) |
 | Expo Go | ❌ (커스텀 네이티브 코드) |
 | Android | ✅ (ML Kit) |
 
