@@ -5,7 +5,7 @@
 ## 동작 원리
 
 ```
-카메라 프레임 → 네이티브 OCR (Apple Vision) → 텍스트 줄 → parseCard() (Luhn + BIN)
+카메라 프레임 → 네이티브 OCR (Apple Vision / ML Kit) → 텍스트 줄 → parseCard() (Luhn + BIN)
 ```
 
 MRZ와 동일하게 네이티브 쪽은 OCR만 수행해 텍스트 줄을 반환하고, `parseCard`는 JS 스레드에서 실행됩니다. **추가 네이티브 의존성이 없습니다** — 같은 `scan(frame)`을 재사용합니다.
@@ -36,6 +36,10 @@ interface CardResult {
 **카드번호가 기준점**입니다 — 그럴듯한 번호를 못 찾으면 `parseCard`는 `null`을 반환합니다. 브랜드가 확인되고 Luhn이 유효한 번호를 우선하므로, 우연히 Luhn을 통과한 부분 문자열이 실제 번호를 이기지 않습니다. 만료일이 여러 개 나오면(예: Amex "member since" + "valid thru") **가장 늦은** 날짜를 선택합니다.
 
 이미 알고 있는 번호에서 브랜드만 필요하면 `detectBrand(number)`를 따로 쓸 수 있습니다.
+
+::: warning 결과 객체를 로깅하지 마세요
+`CardResult.lines`에는 전체 카드번호(PAN)가 포함된 원본 OCR 줄이 그대로 담겨 있습니다. 결과를 통째로 로깅하면(예: `console.log(result)`) 기기 로그와 크래시/분석 파이프라인에 카드번호가 남습니다. 필요한 필드만 로깅하고(예: `result.valid`, `result.brand`), 플로우가 끝나면 결과를 상태에서 바로 비우세요.
+:::
 
 ## 참고 & 한계
 

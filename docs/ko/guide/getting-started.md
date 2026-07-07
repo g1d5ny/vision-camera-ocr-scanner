@@ -17,7 +17,7 @@
 | Bare React Native (CLI) | ✅ |
 | Expo **dev build** / prebuild | ✅ (config plugin) |
 | Expo Go | ❌ (커스텀 네이티브 코드) |
-| Android | 🚧 스텁 (현재 iOS 전용) |
+| Android | ✅ (ML Kit) |
 
 ## 설치
 
@@ -72,17 +72,17 @@ export function PassportScanner() {
 import { detectDocument } from '@jieonist/vision-camera-ocr-scanner';
 
 const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | null
-if (doc?.type === 'mrz') console.log(doc.data.documentNumber);
-else if (doc?.type === 'card') console.log(doc.data.numberFormatted);
+if (doc?.type === 'mrz') console.log(doc.data.format, doc.data.valid);
+else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 ```
 
 모호할 땐 MRZ가 우선입니다(`<<<` 구조가 단순 번호보다 훨씬 특정적이고, 체크섬이 Luhn보다 강함). 화면이 이미 문서 종류를 안다면 전용 파서를 쓰세요 — 오탐이 적고 종류별 가이드 박스를 줄 수 있습니다.
 
 ## 로드맵
 
-- [x] **MRZ**(여권 / 신분증) — iOS에서 동작
-- [x] **신용카드** (번호 + 만료일 + 브랜드, Luhn) — iOS에서 동작
+- [x] **MRZ**(여권 / 신분증) — iOS & Android
+- [x] **신용카드** (번호 + 만료일 + 브랜드, Luhn) — iOS & Android
+- [x] Android 네이티브 OCR (ML Kit)
 - [ ] 명함 → 연락처
 - [ ] 영수증 (상호 / 날짜 / 합계)
-- [ ] Android 네이티브 OCR (ML Kit)
 - [ ] Expo config plugin

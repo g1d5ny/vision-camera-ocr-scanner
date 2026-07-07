@@ -17,7 +17,7 @@
 | Bare React Native (CLI) | ✅ |
 | Expo **dev build** / prebuild | ✅ (config plugin) |
 | Expo Go | ❌ (custom native code) |
-| Android | 🚧 stub (iOS-only for now) |
+| Android | ✅ (ML Kit) |
 
 ## Installation
 
@@ -72,17 +72,17 @@ When you don't know the document type up front, `detectDocument(lines)` runs bot
 import { detectDocument } from '@jieonist/vision-camera-ocr-scanner';
 
 const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | null
-if (doc?.type === 'mrz') console.log(doc.data.documentNumber);
-else if (doc?.type === 'card') console.log(doc.data.numberFormatted);
+if (doc?.type === 'mrz') console.log(doc.data.format, doc.data.valid);
+else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 ```
 
 MRZ wins ambiguous ties (its `<<<` structure is far more specific than a bare number, and its checksum is stronger than Luhn). When your screen already knows the type, prefer the specific parser — fewer false positives and a type-specific guide box.
 
 ## Roadmap
 
-- [x] **MRZ** (passport / ID) — working on iOS
-- [x] **Credit card** (number + expiry + brand, Luhn) — working on iOS
+- [x] **MRZ** (passport / ID) — iOS & Android
+- [x] **Credit card** (number + expiry + brand, Luhn) — iOS & Android
+- [x] Android native OCR (ML Kit)
 - [ ] Business card → contact
 - [ ] Receipt (merchant / date / total)
-- [ ] Android native OCR (ML Kit)
 - [ ] Expo config plugin

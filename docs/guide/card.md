@@ -5,7 +5,7 @@ Point the camera at a payment card to extract the **card number**, **brand**, **
 ## How it works
 
 ```
-camera frame → native OCR (Apple Vision) → text lines → parseCard() (Luhn + BIN)
+camera frame → native OCR (Apple Vision / ML Kit) → text lines → parseCard() (Luhn + BIN)
 ```
 
 Like MRZ, the native side does OCR only and returns text lines; `parseCard` runs on the JS thread. It has **no extra native dependency** — it reuses the same `scan(frame)`.
@@ -36,6 +36,10 @@ interface CardResult {
 The **card number is the anchor** — `parseCard` returns `null` when no plausible number is found. It prefers a brand-known + Luhn-valid run, so a coincidentally-valid substring doesn't win over the real number. When several expiry dates appear (e.g. Amex "member since" + "valid thru"), the **latest** date is chosen.
 
 `detectBrand(number)` is exported separately if you only need the brand from a known number.
+
+::: warning Never log the result object
+`CardResult.lines` contains the raw OCR lines — including the full card number (PAN). Logging the result whole (e.g. `console.log(result)`) leaks it into device logs and crash/analytics pipelines. Log only the fields you need (e.g. `result.valid`, `result.brand`), and drop the result from state as soon as your flow is done.
+:::
 
 ## Notes & limitations
 

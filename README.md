@@ -6,7 +6,7 @@ Built as a [react-native-vision-camera](https://github.com/mrousavy/react-native
 
 📖 **Documentation:** **https://g1d5ny.github.io/vision-camera-ocr-scanner/** ([한국어](https://g1d5ny.github.io/vision-camera-ocr-scanner/ko/))
 
-> 🚧 **Status: early development (iOS).** **MRZ (passport) and credit-card** scanning work today; business-card and receipt modes are on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
+> 🚧 **Status: early development.** **MRZ (passport) and credit-card** scanning work today on **iOS and Android**; business-card and receipt modes are on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
 
 ## Why this library
 
@@ -157,10 +157,15 @@ Add the platform strings:
 - Embossed (raised) card numbers, glare, and worn documents reduce accuracy.
 - For full multi-template ID parsing or certified liveness/KYC, use a commercial SDK.
 
+## Handling sensitive data
+
+> [!WARNING]
+> **Never log the result objects.** `CardResult.lines` / `MrzResult.lines` contain the raw OCR lines — including the full card number (PAN) and passport fields. Logging a result object whole (e.g. `console.log(parsed)`) leaks that data into device logs and crash/analytics pipelines. Log only what you need (e.g. `parsed.valid`, `parsed.brand`), and drop the result from state as soon as the flow is done.
+
 ## Roadmap
 
-- [x] MRZ mode (checksum self-validates) — iOS
-- [x] Credit card mode (number + expiry + brand, Luhn) — iOS
+- [x] MRZ mode (checksum self-validates) — iOS & Android
+- [x] Credit card mode (number + expiry + brand, Luhn) — iOS & Android
 - [ ] Business card → contact
 - [ ] Receipt → merchant / date / total
 - [ ] Expo config plugin

@@ -5,7 +5,7 @@ MRZ는 **Machine Readable Zone**(기계 판독 영역) — 여권(및 일부 신
 ## 동작 원리
 
 ```
-카메라 프레임 → 네이티브 OCR (Apple Vision) → 텍스트 줄 → parseMrz() (mrz + 체크섬)
+카메라 프레임 → 네이티브 OCR (Apple Vision / ML Kit) → 텍스트 줄 → parseMrz() (mrz + 체크섬)
 ```
 
 - 네이티브 `scan(frame)`은 인식된 텍스트 줄을 반환합니다(약 3fps로 스로틀, 위→아래 정렬).
@@ -38,6 +38,10 @@ interface MrzResult {
 ```
 
 `parseMrz`는 연속된 후보 줄 윈도우를 훑으며 가장 좋은 파싱 결과(체크섬 유효 + 이름 있음 우선)를 반환합니다. 따라서 OCR이 여분의 줄을 하나 더 읽어도 잘못된 쌍을 고르지 않습니다. MRZ를 못 찾으면 `null`을 반환하고, 체크 디지트가 실패하면(잡음 섞인 읽기나 샘플 문서 등) `valid: false`인 결과가 나올 수 있습니다.
+
+::: warning 결과 객체를 로깅하지 마세요
+`MrzResult.lines`에는 여권번호·생년월일·이름이 평문으로 담긴 원본 MRZ 줄이 그대로 들어 있습니다. 결과를 통째로 로깅하면(예: `console.log(result)`) 기기 로그와 크래시/분석 파이프라인에 개인정보가 남습니다. 필요한 필드만 로깅하고(예: `result.valid`, `result.format`), 플로우가 끝나면 결과를 상태에서 바로 비우세요.
+:::
 
 ## 참고 & 한계
 

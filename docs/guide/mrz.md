@@ -5,7 +5,7 @@ MRZ is the **Machine Readable Zone** — the two `<<<`-filled lines at the botto
 ## How it works
 
 ```
-camera frame → native OCR (Apple Vision) → text lines → parseMrz() (mrz + checksum)
+camera frame → native OCR (Apple Vision / ML Kit) → text lines → parseMrz() (mrz + checksum)
 ```
 
 - The native `scan(frame)` returns recognized text lines (throttled ~3 fps, sorted top-to-bottom).
@@ -38,6 +38,10 @@ interface MrzResult {
 ```
 
 `parseMrz` scans consecutive candidate-line windows and returns the best parse (preferring checksum-valid + named), so an extra OCR line doesn't select the wrong pair. It returns `null` when no MRZ is found; a result may have `valid: false` when a check digit fails (e.g. a noisy read or a sample document).
+
+::: warning Never log the result object
+`MrzResult.lines` contains the raw MRZ lines — the passport number, birth date, and name in plain text. Logging the result whole (e.g. `console.log(result)`) leaks them into device logs and crash/analytics pipelines. Log only the fields you need (e.g. `result.valid`, `result.format`), and drop the result from state as soon as your flow is done.
+:::
 
 ## Notes & limitations
 
