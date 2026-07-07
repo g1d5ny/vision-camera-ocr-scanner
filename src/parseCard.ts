@@ -23,8 +23,16 @@ export interface CardResult {
 const CARD_RUN = /(?:\d[ -]?){13,19}/g;
 const CARD_LENGTHS = new Set([13, 14, 15, 16, 19]);
 
+// Whole words only — substring matching would reject real surnames that
+// merely contain a token (GOLDBERG, CARDENAS, BANKS).
 const NAME_STOPWORDS =
-  /VALID|THRU|GOOD|MONTH|YEAR|MEMBER|SINCE|BANK|CARD|CREDIT|DEBIT|DATE|EXPIR|CVV|CVC/;
+  /\b(VALID|THRU|GOOD|MONTH|YEAR|MEMBER|SINCE|BANK|CARD|CREDIT|DEBIT|DATE|EXPIR[A-Z]*|CVV|CVC|VISA|MASTERCARD|MAESTRO|AMEX|AMERICAN|EXPRESS|DISCOVER|JCB|UNIONPAY|PLATINUM|SIGNATURE|INFINITE|TITANIUM|GOLD|CLASSIC|BUSINESS)\b/;
+
+// Embossed/printed cardholder names are all-caps A–Z words (spaces and
+// apostrophes aside). Digits, dashes, periods, or lowercase mark a line as
+// background/label text, not a name.
+const NAME_LINE = /^[A-Z][A-Z' ]{3,29}$/;
+const NAME_WORD = /^[A-Z][A-Z']{0,15}$/;
 
 const EXPIRY = /(0[1-9]|1[0-2])\s*\/\s*(\d{2})(?!\d)/g;
 const EXPIRY_LABEL = /(VALID|GOOD)\s*(THRU|THROUGH)|EXP/i;
@@ -80,12 +88,17 @@ export function detectBrand(number: string): string {
  * slightly-misread card (valid: false) instead of a coincidental sub-number.
  */
 function findCardNumber(lines: string[]): string | null {
-  const runs: string[] = [];
-  for (const src of [...lines, lines.join(' ')]) {
-    const matched = src.match(CARD_RUN);
-    if (matched != null) runs.push(...matched);
-  }
+  // A run inside a single OCR line is spatially contiguous on the card.
+  // Joining lines can stitch unrelated digits together (line order is
+  // OCR-dependent, and background text gets mixed in), so the joined text
+  // is only a fallback when no single line yields a number.
+  return (
+    findCardNumberInRuns(lines.flatMap((l) => l.match(CARD_RUN) ?? [])) ??
+    findCardNumberInRuns(lines.join(' ').match(CARD_RUN) ?? [])
+  );
+}
 
+function findCardNumberInRuns(runs: string[]): string | null {
   let best: { number: string; len: number; score: number } | null = null;
   for (const run of runs) {
     const groups = run.split(/[ -]+/).filter(Boolean); // pure-digit groups
@@ -147,14 +160,31 @@ function findExpiry(lines: string[]): { month: string; year: string } | null {
   return best ? { month: best.month, year: best.year } : null;
 }
 
-/** Best-effort cardholder name: an all-letters, multi-word line that isn't a label. */
+function isPlausibleName(candidate: string): boolean {
+  return (
+    NAME_LINE.test(candidate) &&
+    candidate.split(/\s+/).length >= 2 &&
+    !NAME_STOPWORDS.test(candidate)
+  );
+}
+
+/** Best-effort cardholder name: all-caps multi-word text that isn't a label. */
 function findHolderName(lines: string[]): string | null {
+  // Pass 1: a single line that already looks like a full name.
   for (const raw of lines) {
-    const line = raw.trim();
-    if (!/^[A-Za-z][A-Za-z .'-]{4,30}$/.test(line)) continue;
-    if (line.split(/\s+/).length < 2) continue;
-    if (NAME_STOPWORDS.test(line.toUpperCase())) continue;
-    return line.toUpperCase();
+    if (isPlausibleName(raw.trim())) return raw.trim();
+  }
+  // Pass 2: OCR often returns one line per name word ("HONG" | "GILDONG").
+  // Lines arrive row-ordered, so join short runs of adjacent word-lines.
+  for (let i = 0; i < lines.length - 1; i++) {
+    let joined = lines[i]!.trim();
+    if (!NAME_WORD.test(joined)) continue;
+    for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+      const word = lines[j]!.trim();
+      if (!NAME_WORD.test(word)) break;
+      joined += ` ${word}`;
+      if (isPlausibleName(joined)) return joined;
+    }
   }
   return null;
 }

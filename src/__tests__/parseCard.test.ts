@@ -81,6 +81,37 @@ describe('parseCard', () => {
     expect(result!.holderName).toBeNull(); // single-word / label lines aren't names
   });
 
+  it('joins a name split into one line per word', () => {
+    const result = parseCard([
+      '4111 1111 1111 1111',
+      '08/27',
+      'HONG',
+      'GILDONG',
+    ]);
+    expect(result!.holderName).toBe('HONG GILDONG');
+  });
+
+  it('does not mistake background/editor text for a holder name', () => {
+    const result = parseCard([
+      '4111 1111 1111 1111',
+      'someone, 2 days ago',
+      'UTF- LF',
+      'Markdown',
+      'Ln 9, Col 1 Spaces: 2',
+    ]);
+    expect(result!.holderName).toBeNull();
+  });
+
+  it('accepts names that merely contain a stopword token', () => {
+    const result = parseCard(['4111 1111 1111 1111', 'JOHN GOLDBERG']);
+    expect(result!.holderName).toBe('JOHN GOLDBERG');
+  });
+
+  it('does not join brand words into a name', () => {
+    const result = parseCard(['4111 1111 1111 1111', 'VISA', 'PLATINUM']);
+    expect(result!.holderName).toBeNull();
+  });
+
   it('returns the number with valid:false on a Luhn-failing read', () => {
     const result = parseCard(['4111 1111 1111 1112']); // last digit off
     expect(result).not.toBeNull();

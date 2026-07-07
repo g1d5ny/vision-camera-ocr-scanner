@@ -2,8 +2,15 @@ import { parse } from 'mrz';
 
 /** Structured result of a parsed Machine Readable Zone (passport / ID). */
 export interface MrzResult {
-  /** True when the MRZ check digits validate (self-validating). */
+  /** True when ALL MRZ check digits validate (self-validating). */
   valid: boolean;
+  /**
+   * True when the document number, birth date and expiration date check
+   * digits validate. Weaker than `valid` (ignores the optional-data and
+   * composite digits, which OCR noise in unused fields often breaks) but
+   * covers every checksummed field this library reports.
+   */
+  fieldsValid: boolean;
   /** MRZ document format, e.g. 'TD1' | 'TD2' | 'TD3'. */
   format: string;
   documentNumber: string | null;
@@ -28,9 +35,16 @@ const MRZ_FORMATS: ReadonlyArray<{ width: number; lines: number }> = [
   { width: 30, lines: 3 }, // TD1
 ];
 
-/** Uppercase + strip whitespace. */
+/**
+ * Uppercase, strip whitespace, and undo common OCR confusions for the MRZ
+ * filler: `<<` is frequently read as a guillemet (`«`), `<` as `‹`.
+ */
 function clean(line: string): string {
-  return line.toUpperCase().replace(/\s+/g, '');
+  return line
+    .toUpperCase()
+    .replace(/[«≪]/g, '<<')
+    .replace(/[‹]/g, '<')
+    .replace(/\s+/g, '');
 }
 
 /**
@@ -44,13 +58,25 @@ function snap(line: string, width: number): string {
   return line.slice(0, width);
 }
 
+const FIELD_CHECK_DIGITS = [
+  'documentNumberCheckDigit',
+  'birthDateCheckDigit',
+  'expirationDateCheckDigit',
+];
+
 function mapResult(
   result: ReturnType<typeof parse>,
   lines: string[]
 ): MrzResult {
   const f = result.fields;
+  const fieldChecks = result.details.filter((d) =>
+    FIELD_CHECK_DIGITS.includes(d.field ?? '')
+  );
   return {
     valid: result.valid,
+    fieldsValid:
+      fieldChecks.length === FIELD_CHECK_DIGITS.length &&
+      fieldChecks.every((d) => d.valid),
     format: result.format,
     documentNumber: result.documentNumber ?? f.documentNumber ?? null,
     firstName: f.firstName ?? null,
@@ -77,8 +103,10 @@ function tryGroup(
       result.documentNumber ?? result.fields.documentNumber ?? null;
     if (documentNumber == null) return null;
     const hasName = Boolean(result.fields.firstName || result.fields.lastName);
-    const score = (result.valid ? 2 : 0) + (hasName ? 1 : 0);
-    return { result: mapResult(result, lines), score };
+    const mapped = mapResult(result, lines);
+    const score =
+      (result.valid ? 2 : 0) + (mapped.fieldsValid ? 1 : 0) + (hasName ? 1 : 0);
+    return { result: mapped, score };
   } catch {
     return null;
   }
@@ -111,7 +139,18 @@ export function extractMrzLines(lines: string[]): string[] {
  * when the structure parsed but a check digit failed.
  */
 export function parseMrz(inputLines: string[]): MrzResult | null {
-  const candidates = extractMrzLines(inputLines);
+  // Near-width lines plus shorter filler-bearing lines: OCR routinely stops
+  // partway through a trailing `<<<<…` run, so a line like
+  // "P<KORHONG<<GILSOON<<<" is a truncated MRZ line 1, not noise. `<` after
+  // cleaning is a strong MRZ signal — ordinary text never contains it.
+  const candidates = inputLines
+    .map(clean)
+    .filter(
+      (line) =>
+        MRZ_CHARS.test(line) &&
+        (MRZ_FORMATS.some((f) => Math.abs(line.length - f.width) <= 2) ||
+          (line.includes('<') && line.length >= 9))
+    );
   if (candidates.length < 2) return null;
 
   let best: { result: MrzResult; score: number } | null = null;
@@ -119,7 +158,14 @@ export function parseMrz(inputLines: string[]): MrzResult | null {
   for (const { width, lines: need } of MRZ_FORMATS) {
     for (let i = 0; i + need <= candidates.length; i++) {
       const window = candidates.slice(i, i + need);
-      if (!window.every((line) => Math.abs(line.length - width) <= 2)) continue;
+      // Every line must fit the format; short lines are only allowed when
+      // they carry filler (their tail can be padded back), and at least one
+      // line must be near full width to anchor the format choice.
+      const near = (line: string) => Math.abs(line.length - width) <= 2;
+      if (!window.some(near)) continue;
+      const fits = (line: string) =>
+        line.length <= width + 2 && (near(line) || line.includes('<'));
+      if (!window.every(fits)) continue;
 
       const attempts = [window];
       if (!window.every((line) => line.length === width)) {

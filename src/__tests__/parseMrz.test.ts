@@ -29,6 +29,28 @@ describe('extractMrzLines', () => {
 });
 
 describe('parseMrz', () => {
+  it('parses when OCR truncated the trailing filler run of line 1', () => {
+    // ML Kit routinely stops partway through a long `<<<<…` run.
+    const truncated = 'P<D<<MUSTERMANN<<ERIKA<<<';
+    const result = parseMrz([truncated, TD3_LINE_2]);
+    expect(result).not.toBeNull();
+    expect(result!.valid).toBe(true);
+    expect(result!.lastName).toBe('MUSTERMANN');
+    expect(result!.firstName).toBe('ERIKA');
+  });
+
+  it('normalizes guillemets that OCR mistakes for << fillers', () => {
+    const mangled = 'P<D<<MUSTERMANN<<ERIKA<<<«««';
+    const result = parseMrz([mangled, TD3_LINE_2]);
+    expect(result).not.toBeNull();
+    expect(result!.lastName).toBe('MUSTERMANN');
+  });
+
+  it('reports fieldsValid on a fully valid parse', () => {
+    const result = parseMrz([TD3_LINE_1, TD3_LINE_2]);
+    expect(result!.fieldsValid).toBe(true);
+  });
+
   it('parses a valid TD3 passport MRZ', () => {
     const result = parseMrz([TD3_LINE_1, TD3_LINE_2]);
     expect(result).not.toBeNull();

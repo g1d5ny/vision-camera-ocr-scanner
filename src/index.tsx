@@ -10,6 +10,8 @@ export { parseCard, detectBrand } from './parseCard';
 export type { CardResult } from './parseCard';
 export { detectDocument } from './detectDocument';
 export type { DetectedDocument } from './detectDocument';
+export { createCardScanSession, createMrzScanSession } from './scanSession';
+export type { ScanSession, ScanSessionOptions } from './scanSession';
 export type { OcrResult, VisionCameraOcrScanner };
 
 let scanner: VisionCameraOcrScanner | null = null;
