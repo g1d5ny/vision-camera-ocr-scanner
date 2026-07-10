@@ -87,8 +87,9 @@ nitrogen/
 
 # Claude / AI workflow files
 CLAUDE.md
-.claude/
-TODO.md
+.claude/scheduled_tasks.lock
+# 로컬 전용 권한 설정 — 기기 UDID/팀 ID 같은 개인 정보가 기록되므로 커밋 금지
+.claude/settings.local.json
 
 # VitePress docs build
 docs/.vitepress/dist
