@@ -59,8 +59,10 @@ function majority<T>(
     const entry = counts.get(key) ?? { item, count: 0 };
     entry.count++;
     counts.set(key, entry);
-    // >= so ties go to the most recently seen value — later reads tend to
-    // come from better-aligned frames.
+    // >= so ties go to the key whose count grew most recently — later reads
+    // tend to come from better-aligned frames. (The representative item stays
+    // the key's first occurrence; same key means the same value, so which
+    // occurrence wins doesn't matter.)
     if (best == null || entry.count >= best.count) best = entry;
   }
   return best;

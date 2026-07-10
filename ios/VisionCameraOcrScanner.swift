@@ -4,11 +4,9 @@ import Vision
 import VisionCamera
 
 class VisionCameraOcrScanner: HybridVisionCameraOcrScannerSpec {
-    // Throttle: only run OCR every Nth frame (~3 fps at a 30 fps camera).
-    private var frameCount = 0
-    private let frameSkip = 10
-
-    // Reuse a single request instead of allocating one per frame.
+    // Reuse a single request instead of allocating one per frame. scan() runs
+    // on the single frame-processor thread, so unsynchronized reuse is safe as
+    // long as one scanner instance is not shared across multiple camera outputs.
     private lazy var request: VNRecognizeTextRequest = {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
@@ -17,18 +15,22 @@ class VisionCameraOcrScanner: HybridVisionCameraOcrScannerSpec {
         return request
     }()
 
-    func scan(frame: (any HybridFrameSpec)) throws -> OcrResult {
-        frameCount += 1
-        if frameCount % frameSkip != 0 {
-            return OcrResult(text: "", lines: [])
-        }
-
+    func scan(frame: (any HybridFrameSpec), options: ScanOptions?) throws -> OcrResult {
         guard let nativeFrame = frame as? any NativeFrame,
               let sampleBuffer = nativeFrame.sampleBuffer,
               let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
         else {
             return OcrResult(text: "", lines: [])
         }
+
+        // regionOfInterest is zero-copy and applies in the oriented (upright)
+        // coordinate space with a lower-left origin — verified empirically, the
+        // header doesn't say — so the central band is simply the middle half of
+        // the display height regardless of the buffer's rotation.
+        let roi = options?.roi ?? .centralband
+        request.regionOfInterest = roi == .full
+            ? CGRect(x: 0, y: 0, width: 1, height: 1)
+            : CGRect(x: 0, y: 0.25, width: 1, height: 0.5)
 
         // NOTE: assumes a portrait back-camera buffer (landscape-right). This works
         // for the passport-scan use case; deriving orientation from the frame for
@@ -44,12 +46,35 @@ class VisionCameraOcrScanner: HybridVisionCameraOcrScannerSpec {
             return OcrResult(text: "", lines: [])
         }
 
-        // Vision does not guarantee reading order. Sort top-to-bottom so the MRZ
-        // lines are in the right order for the parser (boundingBox origin is
-        // bottom-left and y increases upward, so higher y = higher on the page).
-        let observations = (request.results ?? [])
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-        let lines = observations.compactMap { $0.topCandidates(1).first?.string }
+        // Vision does not guarantee reading order, and fragments on the same
+        // visual row (e.g. the four groups of a card number) can come back as
+        // separate observations in arbitrary order. Cluster observations into
+        // rows by vertical overlap — growing the row bounds as fragments join,
+        // so grouping doesn't hinge on the first fragment — then read each row
+        // left-to-right. Mirrors the Android implementation. boundingBox has a
+        // lower-left origin with y up; flip to y-down top/bottom so the logic
+        // reads the same on both platforms.
+        let entries = (request.results ?? [])
+            .compactMap { observation -> (top: CGFloat, bottom: CGFloat, left: CGFloat, text: String)? in
+                guard let text = observation.topCandidates(1).first?.string else { return nil }
+                let box = observation.boundingBox
+                return (top: 1 - box.maxY, bottom: 1 - box.minY, left: box.minX, text: text)
+            }
+            .sorted { $0.top < $1.top }
+        var rows: [(lines: [(left: CGFloat, text: String)], top: CGFloat, bottom: CGFloat)] = []
+        for entry in entries {
+            if let i = rows.indices.last, rows[i].bottom > rows[i].top,
+               entry.top < rows[i].bottom - (rows[i].bottom - rows[i].top) / 2 {
+                rows[i].lines.append((entry.left, entry.text))
+                rows[i].top = min(rows[i].top, entry.top)
+                rows[i].bottom = max(rows[i].bottom, entry.bottom)
+            } else {
+                rows.append((lines: [(entry.left, entry.text)], top: entry.top, bottom: entry.bottom))
+            }
+        }
+        let lines = rows.flatMap { row in
+            row.lines.sorted { $0.left < $1.left }.map { $0.text }
+        }
         return OcrResult(text: lines.joined(separator: "\n"), lines: lines)
     }
 }

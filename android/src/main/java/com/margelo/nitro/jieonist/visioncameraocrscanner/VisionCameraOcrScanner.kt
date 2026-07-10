@@ -1,9 +1,6 @@
 package com.margelo.nitro.jieonist.visioncameraocrscanner
 
-import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
 import android.graphics.Rect
-import android.graphics.YuvImage
 import android.media.Image
 import androidx.camera.core.ExperimentalGetImage
 import com.facebook.proguard.annotations.DoNotStrip
@@ -13,7 +10,6 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.margelo.nitro.camera.HybridFrameSpec
 import com.margelo.nitro.camera.public.NativeFrame
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
 private class Row(
@@ -24,25 +20,23 @@ private class Row(
 
 @DoNotStrip
 class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
-  // Throttle: only run OCR every Nth frame (~6 fps at a 30 fps camera).
-  // Multi-frame consensus (scan sessions) needs several agreeing reads, so
-  // the read rate directly sets how fast a scan confirms.
-  private var frameCount = 0
-  private val frameSkip = 5
-
-  // Reuse a single recognizer instead of allocating one per frame.
+  // Reuse a single recognizer instead of allocating one per frame. scan() runs
+  // on the single frame-processor thread, so unsynchronized reuse is safe as
+  // long as one scanner instance is not shared across multiple camera outputs.
   private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-  @OptIn(ExperimentalGetImage::class)
-  override fun scan(frame: HybridFrameSpec): OcrResult {
-    frameCount++
-    if (frameCount % frameSkip != 0) {
-      return OcrResult("", arrayOf())
-    }
+  // Reuse one NV21 buffer across scans — a fresh multi-MB array per frame is
+  // needless GC pressure. If a recognition timed out, ML Kit may still be
+  // reading the buffer, so the next scan allocates a fresh one instead of
+  // reusing it (a stale read of a plain array is at worst one misread frame,
+  // never a crash).
+  private var nv21Pool: ByteArray? = null
+  private var poolMaybeInUse = false
 
+  @OptIn(ExperimentalGetImage::class)
+  override fun scan(frame: HybridFrameSpec, options: ScanOptions?): OcrResult {
     val nativeFrame = frame as? NativeFrame ?: return OcrResult("", arrayOf())
     val imageProxy = nativeFrame.image
-    // ML Kit reads the YUV_420_888 media image directly — no RGB conversion needed.
     val mediaImage = try {
       imageProxy.image
     } catch (_: Throwable) {
@@ -50,14 +44,29 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
     } ?: return OcrResult("", arrayOf())
 
     val rotation = imageProxy.imageInfo.rotationDegrees
-    // Crop to the central band (display-vertical middle half) before
-    // recognition. ML Kit downscales large inputs internally, so feeding it
-    // the region under the on-screen guide box preserves glyph detail that
-    // a full frame would lose — and drops background text entirely.
-    // The band is symmetric around the center, so 90/270 and 0/180 collapse
-    // to the same two cases. Falls back to the full frame if cropping fails.
-    val input = cropCentralBand(mediaImage, rotation)
-      ?: InputImage.fromMediaImage(mediaImage, rotation)
+    // Default ROI is the central band (display-vertical middle half) — the
+    // region under a centered on-screen guide box. ML Kit downscales large
+    // inputs internally, so cropping preserves glyph detail a full frame would
+    // lose, and drops background text entirely. The band is symmetric around
+    // the center, so 90/270 and 0/180 collapse to the same two cases.
+    val crop = when {
+      options?.roi == ScanRoi.FULL -> Rect(0, 0, mediaImage.width, mediaImage.height)
+      rotation == 90 || rotation == 270 ->
+        Rect(mediaImage.width / 4, 0, mediaImage.width * 3 / 4, mediaImage.height)
+      else -> Rect(0, mediaImage.height / 4, mediaImage.width, mediaImage.height * 3 / 4)
+    }
+    // Hand ML Kit a copy (the cropped NV21 bytes), never the live camera
+    // buffer: if the await below times out, the recognizer may still be
+    // reading its input after the caller disposes the frame — harmless with a
+    // copy, a native crash with the zero-copy media Image.
+    val input = try {
+      val nv21 = cropToNv21(mediaImage, crop)
+      InputImage.fromByteArray(
+        nv21.bytes, nv21.width, nv21.height, rotation, InputImage.IMAGE_FORMAT_NV21
+      )
+    } catch (_: Throwable) {
+      return OcrResult("", arrayOf())
+    }
     val text = try {
       // scan() runs on the frame-processor thread (never the main thread), so
       // blocking on the recognizer here is safe — and required, since the frame
@@ -66,6 +75,8 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
       // thread (and thus the camera pipeline) forever.
       Tasks.await(recognizer.process(input), 2, TimeUnit.SECONDS)
     } catch (_: Throwable) {
+      // The recognizer may still be reading the pooled buffer — retire it.
+      poolMaybeInUse = true
       return OcrResult("", arrayOf())
     }
 
@@ -99,44 +110,46 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
     return OcrResult(lines.joinToString("\n"), lines.toTypedArray())
   }
 
-  private fun cropCentralBand(image: Image, rotation: Int): InputImage? {
-    return try {
-      val width = image.width
-      val height = image.height
-      // Display-vertical = sensor-horizontal when the frame is rotated ±90°.
-      val crop = if (rotation == 90 || rotation == 270) {
-        Rect(width / 4, 0, width * 3 / 4, height)
-      } else {
-        Rect(0, height / 4, width, height * 3 / 4)
-      }
-      val yuv = YuvImage(yuv420ToNv21(image), ImageFormat.NV21, width, height, null)
-      val jpeg = ByteArrayOutputStream()
-      if (!yuv.compressToJpeg(crop, 90, jpeg)) return null
-      val bytes = jpeg.toByteArray()
-      val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
-      InputImage.fromBitmap(bitmap, rotation)
-    } catch (_: Throwable) {
-      null
-    }
-  }
+  private class Nv21Crop(val bytes: ByteArray, val width: Int, val height: Int)
 
-  /** YUV_420_888 → NV21, honoring row/pixel strides. */
-  private fun yuv420ToNv21(image: Image): ByteArray {
-    val width = image.width
-    val height = image.height
-    val nv21 = ByteArray(width * height * 3 / 2)
+  /**
+   * Copy a crop of a YUV_420_888 image into a fresh NV21 buffer, honoring
+   * row/pixel strides. No JPEG or Bitmap round-trip — this is the only copy
+   * on the hot path, and it copies just the crop region.
+   */
+  private fun cropToNv21(image: Image, crop: Rect): Nv21Crop {
+    // Snap to even offsets/sizes so the 2x2-subsampled chroma stays aligned.
+    val left = (crop.left.coerceAtLeast(0)) and 1.inv()
+    val top = (crop.top.coerceAtLeast(0)) and 1.inv()
+    val width = (crop.right.coerceAtMost(image.width) - left) and 1.inv()
+    val height = (crop.bottom.coerceAtMost(image.height) - top) and 1.inv()
+    require(width > 0 && height > 0) { "empty crop" }
+    val size = width * height * 3 / 2
+    val pooled = nv21Pool
+    val nv21 = if (!poolMaybeInUse && pooled != null && pooled.size == size) {
+      pooled
+    } else {
+      ByteArray(size).also {
+        nv21Pool = it
+        poolMaybeInUse = false
+      }
+    }
 
     val yPlane = image.planes[0]
-    val yBuffer = yPlane.buffer
+    // duplicate() so the live camera buffer's position/limit are never mutated.
+    val yBuffer = yPlane.buffer.duplicate()
     var out = 0
-    for (row in 0 until height) {
-      yBuffer.position(row * yPlane.rowStride)
-      if (yPlane.pixelStride == 1) {
+    if (yPlane.pixelStride == 1) {
+      for (row in 0 until height) {
+        yBuffer.position((top + row) * yPlane.rowStride + left)
         yBuffer.get(nv21, out, width)
         out += width
-      } else {
+      }
+    } else {
+      for (row in 0 until height) {
+        val base = (top + row) * yPlane.rowStride + left * yPlane.pixelStride
         for (col in 0 until width) {
-          nv21[out++] = yBuffer.get(row * yPlane.rowStride + col * yPlane.pixelStride)
+          nv21[out++] = yBuffer.get(base + col * yPlane.pixelStride)
         }
       }
     }
@@ -144,15 +157,19 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
     // NV21 wants interleaved VU at quarter resolution.
     val uPlane = image.planes[1]
     val vPlane = image.planes[2]
-    val uBuffer = uPlane.buffer
-    val vBuffer = vPlane.buffer
+    val uBuffer = uPlane.buffer.duplicate()
+    val vBuffer = vPlane.buffer.duplicate()
+    val chromaTop = top / 2
+    val chromaLeft = left / 2
     for (row in 0 until height / 2) {
+      val vBase = (chromaTop + row) * vPlane.rowStride
+      val uBase = (chromaTop + row) * uPlane.rowStride
       for (col in 0 until width / 2) {
-        nv21[out++] = vBuffer.get(row * vPlane.rowStride + col * vPlane.pixelStride)
-        nv21[out++] = uBuffer.get(row * uPlane.rowStride + col * uPlane.pixelStride)
+        nv21[out++] = vBuffer.get(vBase + (chromaLeft + col) * vPlane.pixelStride)
+        nv21[out++] = uBuffer.get(uBase + (chromaLeft + col) * uPlane.pixelStride)
       }
     }
-    return nv21
+    return Nv21Crop(nv21, width, height)
   }
 
   override fun dispose() {

@@ -8,7 +8,7 @@ MRZ는 **Machine Readable Zone**(기계 판독 영역) — 여권(및 일부 신
 카메라 프레임 → 네이티브 OCR (Apple Vision / ML Kit) → 텍스트 줄 → parseMrz() (mrz + 체크섬)
 ```
 
-- 네이티브 `scan(frame)`은 인식된 텍스트 줄을 반환합니다(약 3fps로 스로틀, 위→아래 정렬).
+- 네이티브 `scan(frame)`은 인식된 텍스트 줄을 반환합니다(위→아래, 같은 행 안에서는 왼→오른쪽 정렬). 호출마다 실제 OCR을 수행하므로 worklet에서 직접 스로틀하세요(예: 5프레임마다 1회). 기본값으로 프레임 중앙 밴드만 인식하며, 전체 프레임은 `{ roi: 'full' }`로 지정합니다.
 - `parseMrz(lines)`는 MRZ 줄을 찾아 [`mrz`](https://www.npmjs.com/package/mrz) 라이브러리로 파싱하고 체크 디지트를 검증합니다.
 
 ## 파싱 API

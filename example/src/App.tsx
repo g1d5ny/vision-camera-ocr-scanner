@@ -21,6 +21,12 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 type Mode = 'mrz' | 'card' | 'auto';
 
+// OCR takes hundreds of ms per call and scan() never throttles itself, so
+// only run it on every Nth frame (~6 scans/s at a 30 fps camera). The scan
+// sessions need several agreeing reads, so this rate sets how fast a scan
+// confirms.
+const OCR_FRAME_SKIP = 5;
+
 export default function App() {
   const { hasPermission, requestPermission } = useCameraPermission();
   // Force the main wide-angle camera: on multi-camera devices the default
@@ -75,11 +81,21 @@ export default function App() {
     targetResolution: CommonResolutions.QHD_4_3,
     onFrame: (frame) => {
       'worklet';
-      const ocr = scanner.scan(frame);
-      if (ocr.lines.length > 0) {
-        scheduleOnRN(handleLines, ocr.lines);
+      // Dispose in finally: if scan() throws, a leaked frame stalls the
+      // camera pipeline once the buffer pool runs dry.
+      try {
+        // Worklet closures are frozen, so the throttle counter lives on the
+        // worklet runtime's globalThis instead of a captured object.
+        const g = globalThis as unknown as { __ocrFrameCount?: number };
+        g.__ocrFrameCount = (g.__ocrFrameCount ?? 0) + 1;
+        if (g.__ocrFrameCount % OCR_FRAME_SKIP !== 0) return;
+        const ocr = scanner.scan(frame);
+        if (ocr.lines.length > 0) {
+          scheduleOnRN(handleLines, ocr.lines);
+        }
+      } finally {
+        frame.dispose();
       }
-      frame.dispose();
     },
   });
 

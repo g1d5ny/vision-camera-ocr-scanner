@@ -51,9 +51,16 @@ export function PassportScanner() {
     pixelFormat: 'yuv',
     onFrame: (frame) => {
       'worklet';
-      const ocr = scanner.scan(frame); // native OCR
-      if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines); // parse on JS thread
-      frame.dispose();
+      try {
+        // scan() runs real OCR (hundreds of ms) on every call — throttle it.
+        const g = globalThis as unknown as { __ocrFrameCount?: number };
+        g.__ocrFrameCount = (g.__ocrFrameCount ?? 0) + 1;
+        if (g.__ocrFrameCount % 5 !== 0) return;
+        const ocr = scanner.scan(frame); // native OCR
+        if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines); // parse on JS thread
+      } finally {
+        frame.dispose();
+      }
     },
   });
 

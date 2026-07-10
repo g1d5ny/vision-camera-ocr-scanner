@@ -92,7 +92,8 @@ function mapResult(
 
 /**
  * Parse a candidate line group. Returns the result plus a quality score
- * (checksum-valid = +2, has a name = +1), or null if it can't be parsed.
+ * (checksum-valid = +2, field checksums valid = +1, has a name = +1), or null
+ * if it can't be parsed.
  */
 function tryGroup(
   lines: string[]

@@ -8,7 +8,7 @@ MRZ is the **Machine Readable Zone** — the two `<<<`-filled lines at the botto
 camera frame → native OCR (Apple Vision / ML Kit) → text lines → parseMrz() (mrz + checksum)
 ```
 
-- The native `scan(frame)` returns recognized text lines (throttled ~3 fps, sorted top-to-bottom).
+- The native `scan(frame)` returns recognized text lines (sorted top-to-bottom, left-to-right within a row). It runs real OCR on every call — throttle calls in your worklet (e.g. every 5th frame). By default it recognizes only the central band of the frame; pass `{ roi: 'full' }` for the whole frame.
 - `parseMrz(lines)` finds the MRZ lines, parses them with the [`mrz`](https://www.npmjs.com/package/mrz) library, and validates the check digits.
 
 ## Parsing API

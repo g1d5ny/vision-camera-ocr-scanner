@@ -67,7 +67,9 @@ npx expo prebuild && npx expo run:ios   # or run:android
 
 ## Usage
 
-The native side does **OCR only** — `scan(frame)` returns recognized text lines. You then structure them on the JS thread with `parseMrz` / `parseCard` (the parsers aren't worklet-safe). This keeps every mode on one native call, with no extra native dependency.
+The native side does **OCR only** — `scan(frame, options?)` returns recognized text lines. You then structure them on the JS thread with `parseMrz` / `parseCard` (the parsers aren't worklet-safe). This keeps every mode on one native call, with no extra native dependency.
+
+`scan()` performs real OCR on **every call** (no internal throttling) and by default recognizes only the **central band** of the frame — the middle half under a centered guide box, which preserves glyph detail and drops background text. Pass `{ roi: 'full' }` to recognize the whole frame, and throttle calls yourself in the worklet (see below).
 
 ```tsx
 import { useCallback, useMemo, useState } from 'react';
@@ -99,9 +101,16 @@ export function CardScanner() {
     pixelFormat: 'yuv',
     onFrame: (frame) => {
       'worklet';
-      const ocr = scanner.scan(frame); // native OCR → { text, lines }
-      if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines);
-      frame.dispose();
+      try {
+        // scan() runs real OCR (hundreds of ms) on every call — throttle it.
+        const g = globalThis as unknown as { __ocrFrameCount?: number };
+        g.__ocrFrameCount = (g.__ocrFrameCount ?? 0) + 1;
+        if (g.__ocrFrameCount % 5 !== 0) return;
+        const ocr = scanner.scan(frame); // native OCR → { text, lines }
+        if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines);
+      } finally {
+        frame.dispose();
+      }
     },
   });
 

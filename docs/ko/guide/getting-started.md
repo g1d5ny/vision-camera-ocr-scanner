@@ -51,9 +51,16 @@ export function PassportScanner() {
     pixelFormat: 'yuv',
     onFrame: (frame) => {
       'worklet';
-      const ocr = scanner.scan(frame); // 네이티브 OCR
-      if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines); // JS 스레드에서 파싱
-      frame.dispose();
+      try {
+        // scan()은 호출마다 실제 OCR(수백 ms)을 수행 — 직접 스로틀하세요.
+        const g = globalThis as unknown as { __ocrFrameCount?: number };
+        g.__ocrFrameCount = (g.__ocrFrameCount ?? 0) + 1;
+        if (g.__ocrFrameCount % 5 !== 0) return;
+        const ocr = scanner.scan(frame); // 네이티브 OCR
+        if (ocr.lines.length > 0) scheduleOnRN(onLines, ocr.lines); // JS 스레드에서 파싱
+      } finally {
+        frame.dispose();
+      }
     },
   });
 
