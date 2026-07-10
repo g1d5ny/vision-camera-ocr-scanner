@@ -10,9 +10,18 @@ export { parseMrz, extractMrzLines } from './parseMrz';
 export type { MrzResult } from './parseMrz';
 export { parseCard, detectBrand } from './parseCard';
 export type { CardResult } from './parseCard';
+export { parseBusinessCard } from './parseBusinessCard';
+export type {
+  BusinessCardResult,
+  BusinessCardPhone,
+} from './parseBusinessCard';
 export { detectDocument } from './detectDocument';
 export type { DetectedDocument } from './detectDocument';
-export { createCardScanSession, createMrzScanSession } from './scanSession';
+export {
+  createBusinessCardScanSession,
+  createCardScanSession,
+  createMrzScanSession,
+} from './scanSession';
 export type { ScanSession, ScanSessionOptions } from './scanSession';
 export type { OcrResult, ScanOptions, ScanRoi, VisionCameraOcrScanner };
 

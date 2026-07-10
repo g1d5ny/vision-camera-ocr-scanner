@@ -6,7 +6,7 @@ Built as a [react-native-vision-camera](https://github.com/mrousavy/react-native
 
 📖 **Documentation:** **https://g1d5ny.github.io/vision-camera-ocr-scanner/** ([한국어](https://g1d5ny.github.io/vision-camera-ocr-scanner/ko/))
 
-> 🚧 **Status: early development.** **MRZ (passport) and credit-card** scanning work today on **iOS and Android**; business-card and receipt modes are on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
+> 🚧 **Status: early development.** **MRZ (passport), credit-card, and business-card** scanning work today on **iOS and Android**; the receipt mode is on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
 
 ## Why this library
 
@@ -127,12 +127,13 @@ export function CardScanner() {
 |---|---|---|
 | `parseMrz(lines)` | `MrzResult \| null` — passport/ID fields | ICAO 9303 check digits |
 | `parseCard(lines)` | `CardResult \| null` — number, brand, expiry, holder | Luhn checksum |
+| `parseBusinessCard(lines)` | `BusinessCardResult \| null` — name, company, title, phones, email, website, address | none (heuristics) — pair with its scan session |
 | `detectDocument(lines)` | `DetectedDocument \| null` — auto-detect MRZ **or** card | runs both; validates |
 | `detectBrand(number)` | brand string from a known card number | — |
 
-For a "scan any document" flow, `detectDocument(lines)` runs both parsers and returns `{ type: 'mrz' | 'card', valid, data }` (MRZ wins ambiguous ties). When your screen already knows the type, call the specific parser — fewer false positives and a mode-specific guide box.
+For a "scan any document" flow, `detectDocument(lines)` runs both self-validating parsers and returns `{ type: 'mrz' | 'card', valid, data }` (MRZ wins ambiguous ties). Business cards are deliberately excluded — a phone number alone would make almost any text "detect" as one. When your screen already knows the type, call the specific parser — fewer false positives and a mode-specific guide box.
 
-See the docs for the full [`MrzResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz) and [`CardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card) shapes.
+See the docs for the full [`MrzResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz), [`CardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card), and [`BusinessCardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/business-card) shapes.
 
 ### Native result type
 
@@ -174,7 +175,7 @@ Add the platform strings:
 
 - [x] MRZ mode (checksum self-validates) — iOS & Android
 - [x] Credit card mode (number + expiry + brand, Luhn) — iOS & Android
-- [ ] Business card → contact
+- [x] Business card → contact (name / company / title / phones / email / address)
 - [ ] Receipt → merchant / date / total
 - [ ] Expo config plugin
 - [ ] First npm release (`0.1.0`)
@@ -186,6 +187,7 @@ Full guides live at **https://g1d5ny.github.io/vision-camera-ocr-scanner/** (Eng
 - [Getting Started](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/getting-started)
 - [MRZ Scanning](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz)
 - [Credit Card Scanning](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card)
+- [Business Card Scanning](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/business-card)
 
 ## Contributing
 

@@ -1,10 +1,13 @@
 import {
+  createBusinessCardScanSession,
   createCardScanSession,
   createMrzScanSession,
   detectDocument,
   getOcrScanner,
+  parseBusinessCard,
   parseCard,
   parseMrz,
+  type BusinessCardResult,
   type CardResult,
   type MrzResult,
 } from '@jieonist/vision-camera-ocr-scanner';
@@ -19,7 +22,7 @@ import {
 } from 'react-native-vision-camera';
 import { scheduleOnRN } from 'react-native-worklets';
 
-type Mode = 'mrz' | 'card' | 'auto';
+type Mode = 'mrz' | 'card' | 'bizcard' | 'auto';
 
 // OCR takes hundreds of ms per call and scan() never throttles itself, so
 // only run it on every Nth frame (~6 scans/s at a 30 fps camera). The scan
@@ -42,20 +45,33 @@ export default function App() {
     []
   );
   const cardSession = useMemo(() => createCardScanSession(), []);
+  // Business cards have nothing to checksum — the session anchors on the
+  // contact identity (email/phones) repeating instead.
+  const bizSession = useMemo(() => createBusinessCardScanSession(), []);
   const [mode, setMode] = useState<Mode>('mrz');
   const [mrz, setMrz] = useState<MrzResult | null>(null);
   const [card, setCard] = useState<CardResult | null>(null);
+  const [biz, setBiz] = useState<BusinessCardResult | null>(null);
+  // Dev-only: the raw OCR lines the parser last received, overlaid on the
+  // camera so heuristics can be tuned against real cards. Never logged.
+  const [debugLines, setDebugLines] = useState<string[]>([]);
 
   // Capture the document once its session is confident, then freeze.
   const handleLines = useCallback(
     (lines: string[]) => {
+      if (__DEV__) setDebugLines(lines);
       let mrzParse: MrzResult | null = null;
       let cardParse: CardResult | null = null;
+      let bizParse: BusinessCardResult | null = null;
       if (mode === 'mrz') {
         mrzParse = parseMrz(lines);
       } else if (mode === 'card') {
         cardParse = parseCard(lines);
+      } else if (mode === 'bizcard') {
+        bizParse = parseBusinessCard(lines);
       } else {
+        // detectDocument covers self-validating documents (MRZ/card) only —
+        // business cards would false-positive on any text with a phone number.
         const doc = detectDocument(lines);
         if (doc?.type === 'mrz') mrzParse = doc.data;
         else if (doc?.type === 'card') cardParse = doc.data;
@@ -68,8 +84,12 @@ export default function App() {
         const final = cardSession.push(cardParse);
         if (final != null) setCard((prev) => prev ?? final);
       }
+      if (bizParse != null) {
+        const final = bizSession.push(bizParse);
+        if (final != null) setBiz((prev) => prev ?? final);
+      }
     },
-    [mode, mrzSession, cardSession]
+    [mode, mrzSession, cardSession, bizSession]
   );
 
   const frameOutput = useFrameOutput({
@@ -102,19 +122,23 @@ export default function App() {
   const reset = useCallback(() => {
     mrzSession.reset();
     cardSession.reset();
+    bizSession.reset();
     setMrz(null);
     setCard(null);
-  }, [mrzSession, cardSession]);
+    setBiz(null);
+  }, [mrzSession, cardSession, bizSession]);
 
   const switchMode = useCallback(
     (next: Mode) => {
       mrzSession.reset();
       cardSession.reset();
+      bizSession.reset();
       setMode(next);
       setMrz(null);
       setCard(null);
+      setBiz(null);
     },
-    [mrzSession, cardSession]
+    [mrzSession, cardSession, bizSession]
   );
 
   if (!hasPermission) {
@@ -184,13 +208,48 @@ export default function App() {
     );
   }
 
+  if (biz != null) {
+    return (
+      <View style={styles.resultScreen}>
+        <Text style={styles.resultTitle}>명함 정보</Text>
+        <Field label="이름" value={biz.name} />
+        <Field label="직함" value={biz.jobTitle} />
+        <Field label="부서" value={biz.department} />
+        <Field label="회사" value={biz.company} />
+        {biz.phones.map((p) => (
+          <Field
+            key={p.number}
+            label={
+              p.type === 'mobile'
+                ? '휴대폰'
+                : p.type === 'fax'
+                  ? '팩스'
+                  : p.type === 'tel'
+                    ? '전화'
+                    : '번호'
+            }
+            value={p.number}
+          />
+        ))}
+        <Field label="이메일" value={biz.email} />
+        <Field label="웹사이트" value={biz.website} />
+        <Field label="주소" value={biz.address} />
+        <Pressable style={styles.button} onPress={reset}>
+          <Text style={styles.buttonText}>다시 스캔</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   // Scanning.
   const hint =
     mode === 'mrz'
       ? '여권 아래쪽 MRZ를 비춰주세요'
       : mode === 'card'
         ? '카드 번호가 잘 보이게 비춰주세요'
-        : '여권 MRZ 또는 카드를 비춰주세요';
+        : mode === 'bizcard'
+          ? '명함 전체가 잘 보이게 비춰주세요'
+          : '여권 MRZ 또는 카드를 비춰주세요';
   return (
     <View style={styles.container}>
       <Camera
@@ -211,17 +270,32 @@ export default function App() {
           onPress={() => switchMode('card')}
         />
         <ModeTab
+          label="명함"
+          active={mode === 'bizcard'}
+          onPress={() => switchMode('bizcard')}
+        />
+        <ModeTab
           label="자동"
           active={mode === 'auto'}
           onPress={() => switchMode('auto')}
         />
       </View>
       <View style={styles.guide}>
+        {/* 명함도 ID-1 카드와 비율이 비슷해 카드 가이드박스를 같이 쓴다. */}
         <View
           style={mode === 'mrz' ? styles.guideBoxMrz : styles.guideBoxCard}
         />
         <Text style={styles.hint}>{hint}</Text>
       </View>
+      {__DEV__ && debugLines.length > 0 && (
+        <View style={styles.debug} pointerEvents="none">
+          {debugLines.slice(0, 10).map((line, i) => (
+            <Text key={i} style={styles.debugText} numberOfLines={1}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -314,6 +388,17 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     textAlign: 'center',
   },
+
+  debug: {
+    position: 'absolute',
+    bottom: 24,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  debugText: { color: '#a7f3d0', fontSize: 11 },
 
   resultScreen: {
     flex: 1,

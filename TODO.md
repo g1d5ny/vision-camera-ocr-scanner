@@ -77,10 +77,19 @@
 - [ ] [Nit] Android 크로마 복사 pixelStride=2 케이스 bulk get 최적화 (행당 1회 복사, 수 ms 절약 — 선택)
 - [x] 기기에서 실제 여권/카드 스캔 회귀 검증 — iOS·Android 실기기 모두 이상 없음 (사용자 확인, 2026-07-10)
 
-### 3) 명함 → 연락처 ← 지금 여기
-- [ ] Nitro 스펙에 명함 결과 타입 정의
-- [ ] 이름·회사·전화·이메일·주소 추출 휴리스틱 (TS)
-- [ ] 예제 화면 + 테스트
+### 3) 명함 → 연락처 ✅
+> 카드 모드처럼 네이티브 변경 없음 — TS 파서만 추가. Codex 상의로 API 확정:
+> 구조화 phones(type은 강한 신호만), valid 필드 없음(체크섬 부재 — semantic drift 방지),
+> 전용 세션(이메일/전화 identity, minReads 2), detectDocument 미통합(오탐 방지)
+- [x] `parseBusinessCard`/`BusinessCardResult` (TS) — 이름·회사·직함·전화(mobile/tel/fax/unknown)·이메일·웹·주소, 한/영 휴리스틱
+- [x] `createBusinessCardScanSession` — 연락처 identity 반복 anchor + 필드 다수결, anchor 없는 프레임 폐기
+- [x] jest 17개 (한/영 명함, 010 프리픽스, 사업자등록번호/날짜 제외, dedupe, 세션 확정/보류)
+- [x] 예제 "명함" 탭 + 결과 화면 (+ dev 전용 OCR 원본 오버레이)
+- [x] 문서 (en/ko business-card 가이드 + VitePress nav/sidebar) + README 갱신
+- [x] 실기기 피드백 반영 1차: 한/영 혼합 이름 줄, 복합 직함 전체 반환, 직함 키워드 보강
+- [x] 실기기 피드백 반영 2차 (Codex 상의): **소거법 fallback** — 키워드 사전 밖 직함/부서를 '강한 패턴 필드가 아닌 이름 인접 짧은 줄'로 인식, `department` 필드 분리, 슬로건 가드 (jest 70/70)
+- [ ] 기기에서 실제 명함 스캔 재검증 (소거법 반영 후)
+- [ ] (후속) OcrResult에 줄별 bounding box 노출 → '가장 큰 글씨=이름' 레이아웃 휴리스틱 (Codex: A 선행, B 빠른 후속)
 
 ### 4) 영수증 — 상호/날짜/합계
 - [ ] Nitro 스펙에 영수증 결과 타입 정의

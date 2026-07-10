@@ -1,3 +1,4 @@
+import type { BusinessCardResult } from './parseBusinessCard';
 import type { CardResult } from './parseCard';
 import type { MrzResult } from './parseMrz';
 
@@ -157,6 +158,52 @@ export function createMrzScanSession(
       );
       if (name != null && name.count < 2 && !settled) return null;
       return name?.item ?? agreeing[agreeing.length - 1]!;
+    }
+  );
+}
+
+/**
+ * Business-card scan session. Cards have nothing to checksum, so the anchor
+ * is the contact identity instead: the email (preferred) or the set of phone
+ * numbers. Frames without either are dropped — mixing anchorless frames into
+ * the vote adds state, not accuracy. Once the same identity has repeated
+ * `minReads` times (default 2 — an exact email/phone match repeating is
+ * already a strong signal), unchecked fields are taken by majority; the name
+ * must repeat before it's trusted, and after `maxReads` the best guess wins.
+ * `requireChecksum` has no effect for this mode.
+ */
+export function createBusinessCardScanSession(
+  options: ScanSessionOptions = {}
+): ScanSession<BusinessCardResult> {
+  const identityOf = (r: BusinessCardResult) =>
+    r.email?.toLowerCase() ??
+    r.phones
+      .map((p) => p.number.replace(/\D/g, ''))
+      .sort()
+      .join(',');
+  return createSession<BusinessCardResult>(
+    { minReads: 2, ...options },
+    (r) => r.email != null || r.phones.length > 0,
+    identityOf,
+    (agreeing, settled) => {
+      const name = majority(agreeing, (r) => r.name);
+      if (name != null && name.count < 2 && !settled) return null;
+      const base = agreeing[agreeing.length - 1]!;
+      const company = majority(agreeing, (r) => r.company);
+      const jobTitle = majority(agreeing, (r) => r.jobTitle);
+      const department = majority(agreeing, (r) => r.department);
+      const address = majority(agreeing, (r) => r.address);
+      const website = majority(agreeing, (r) => r.website);
+      return {
+        ...base,
+        name:
+          name != null && (name.count >= 2 || settled) ? name.item.name : null,
+        company: company?.item.company ?? null,
+        jobTitle: jobTitle?.item.jobTitle ?? null,
+        department: department?.item.department ?? null,
+        address: address?.item.address ?? null,
+        website: website?.item.website ?? null,
+      };
     }
   );
 }
