@@ -23,5 +23,5 @@ features:
 ---
 
 ::: warning EARLY DEVELOPMENT
-This library is a work in progress. **MRZ (passport) and credit card scanning work on iOS and Android today**; business card and receipt modes are on the [roadmap](/guide/getting-started#roadmap).
+This library is a work in progress. **MRZ (passport), credit card, and business card scanning work on iOS and Android today**; the receipt mode is on the [roadmap](/guide/getting-started#roadmap).
 :::

@@ -73,12 +73,12 @@ The native side does OCR only (returns text lines); parsing/structuring runs in 
 
 ## Auto-detect (scan anything)
 
-When you don't know the document type up front, `detectDocument(lines)` runs both parsers and returns the winner:
+When you don't know the document type up front, `detectDocument(lines)` runs the parsers in confidence order and returns the winner (a business card only detects when an email is present):
 
 ```ts
 import { detectDocument } from '@jieonist/vision-camera-ocr-scanner';
 
-const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | null
+const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | { type: 'bizcard', data } | null
 if (doc?.type === 'mrz') console.log(doc.data.format, doc.data.valid);
 else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 ```
@@ -89,6 +89,6 @@ MRZ wins ambiguous ties (its `<<<` structure is far more specific than a bare nu
 
 - [x] **MRZ** (passport / ID) — iOS & Android
 - [x] **Credit card** (number + expiry + brand, Luhn) — iOS & Android
-- [ ] Business card → contact
+- [x] **Business card** → contact (name / company / title / phones / email / address) — iOS & Android
 - [ ] Receipt (merchant / date / total)
 - [ ] Expo config plugin

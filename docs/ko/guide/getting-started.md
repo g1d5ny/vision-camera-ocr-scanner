@@ -73,12 +73,12 @@ export function PassportScanner() {
 
 ## 자동 인식 (아무 문서나 스캔)
 
-문서 종류를 미리 모를 때는 `detectDocument(lines)`가 두 파서를 다 돌려 승자를 반환합니다:
+문서 종류를 미리 모를 때는 `detectDocument(lines)`가 파서들을 신뢰도 순으로 돌려 승자를 반환합니다 (명함은 이메일이 있을 때만 감지):
 
 ```ts
 import { detectDocument } from '@jieonist/vision-camera-ocr-scanner';
 
-const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | null
+const doc = detectDocument(lines); // { type: 'mrz' | 'card', valid, data } | { type: 'bizcard', data } | null
 if (doc?.type === 'mrz') console.log(doc.data.format, doc.data.valid);
 else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 ```
@@ -89,6 +89,6 @@ else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 
 - [x] **MRZ**(여권 / 신분증) — iOS & Android
 - [x] **신용카드** (번호 + 만료일 + 브랜드, Luhn) — iOS & Android
-- [ ] 명함 → 연락처
+- [x] **명함** → 연락처 (이름 / 회사 / 직함 / 전화 / 이메일 / 주소) — iOS & Android
 - [ ] 영수증 (상호 / 날짜 / 합계)
 - [ ] Expo config plugin
