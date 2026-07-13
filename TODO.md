@@ -18,7 +18,8 @@
 - [ ] `react-native-vision-camera` (v5/Nitro) peer dependency 추가
 - [ ] OCR 결과 Nitro 스펙 형태 결정 (raw 텍스트 블록 + 모드별 구조화 필드)
 - [ ] Apple Vision (iOS) + ML Kit Text Recognition (Android) 연결
-- [ ] Expo 지원: config plugin 추가 + dev-build 소비 검증 (New Arch 전용, Expo Go 불가)
+- [x] Expo 지원: autolinking만으로 동작 확인 — 자체 config plugin 불필요로 결론, 로드맵에서 제거 (vision-camera 플러그인만 필요, README/docs 안내)
+- [ ] Expo dev-build로 실제 소비 검증 1회 (npm 배포본 기준)
 - [ ] 지원 플랫폼 문서화: Expo dev build + bare RN CLI, New Architecture 전용
 
 ## 스캔 모드 (4종, 우선순위 순)
@@ -104,9 +105,9 @@
 
 ## Release
 - [x] README: 사용법 + 지원 플랫폼 + New Arch 요구사항 (실제 parseMrz/parseCard API로 재작성)
-- [ ] npm에 0.1.0 배포
+- [x] **npm에 0.1.0 배포 완료** (2026-07-13) — Codex 배포 점검 반영(publishConfig.access, prepack, podspec 하드닝, README 정합), tarball 개인정보 전수 스캔 clean, git tag `0.1.0` 푸시. 2FA(passkey)로 사용자가 직접 publish
 - [x] 문서 사이트: **VitePress → GitHub Pages** 자동배포 (docs.yml), 한/영 i18n (`g1d5ny.github.io/vision-camera-ocr-scanner`)
-- [ ] (사용자 수동) repo Settings → Pages → Source: GitHub Actions 활성화 확인
+- [x] repo Settings → Pages 활성화 확인 — 사이트 배포 정상 (flow 문서까지 200 응답 확인)
 
 ## CI (GitHub Actions) — ✅ 전체 통과 (run 28700804186)
 - [x] yarn.lock 추적, android gradle+CMake vision-camera, Gemfile 번들러+base64/drb, pod repo update 제거

@@ -15,7 +15,7 @@
 | Platform | Supported |
 | --- | --- |
 | Bare React Native (CLI) | ✅ |
-| Expo **dev build** / prebuild | ✅ (autolinking — a dedicated config plugin is on the [roadmap](#roadmap)) |
+| Expo **dev build** / prebuild | ✅ (autolinks — no config plugin of its own needed) |
 | Expo Go | ❌ (custom native code) |
 | Android | ✅ (ML Kit) |
 
@@ -91,4 +91,3 @@ MRZ wins ambiguous ties (its `<<<` structure is far more specific than a bare nu
 - [x] **Credit card** (number + expiry + brand, Luhn) — iOS & Android
 - [x] **Business card** → contact (name / company / title / phones / email / address) — iOS & Android
 - [ ] Receipt (merchant / date / total)
-- [ ] Expo config plugin

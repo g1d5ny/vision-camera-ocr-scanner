@@ -28,7 +28,7 @@ Not trying to be a paid enterprise KYC SDK (BlinkID, Dynamsoft, Scanbot). This i
 | Platform | Supported |
 |---|---|
 | Bare React Native (CLI) | ✅ |
-| Expo **dev build** / prebuild | ✅ (autolinking — a dedicated config plugin is on the [roadmap](#roadmap)) |
+| Expo **dev build** / prebuild | ✅ (autolinks — no config plugin of its own needed) |
 | Expo Go | ❌ (uses custom native code) |
 
 ## Installation
@@ -183,7 +183,6 @@ Add the platform strings:
 - [x] Credit card mode (number + expiry + brand, Luhn) — iOS & Android
 - [x] Business card → contact (name / company / title / phones / email / address)
 - [ ] Receipt → merchant / date / total
-- [ ] Expo config plugin
 - [x] First npm release (`0.1.0`)
 
 ## Documentation

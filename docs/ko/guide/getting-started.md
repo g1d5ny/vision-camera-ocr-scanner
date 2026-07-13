@@ -15,7 +15,7 @@
 | 플랫폼 | 지원 |
 | --- | --- |
 | Bare React Native (CLI) | ✅ |
-| Expo **dev build** / prebuild | ✅ (autolinking — 전용 config plugin은 [로드맵](#로드맵)) |
+| Expo **dev build** / prebuild | ✅ (autolinking — 자체 config plugin 불필요) |
 | Expo Go | ❌ (커스텀 네이티브 코드) |
 | Android | ✅ (ML Kit) |
 
@@ -91,4 +91,3 @@ else if (doc?.type === 'card') console.log(doc.data.brand, doc.data.valid);
 - [x] **신용카드** (번호 + 만료일 + 브랜드, Luhn) — iOS & Android
 - [x] **명함** → 연락처 (이름 / 회사 / 직함 / 전화 / 이메일 / 주소) — iOS & Android
 - [ ] 영수증 (상호 / 날짜 / 합계)
-- [ ] Expo config plugin
