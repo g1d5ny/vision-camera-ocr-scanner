@@ -96,9 +96,21 @@ const KR_NAME = /^[가-힣]{2,4}$/;
 const EN_NAME = /^[A-Z][A-Za-z.'-]{1,19}(?: [A-Z][A-Za-z.'-]{1,19}){1,2}$/;
 
 const KR_ADDRESS =
-  /[가-힣]+(?:특별시|광역시|시|도|구|군)\s|[가-힣]+[로길]\s?\d|\d+\s?(?:층|호)(?:\s|,|$)/;
+  /(?:^|\s)(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)\s|[가-힣]+(?:특별시|광역시|시|도|구|군)\s|[가-힣]+[로길]\s?\d|\d+\s?(?:층|호)(?:\s|,|$)/;
 const EN_ADDRESS =
   /\d+[^,]*\b(?:street|st\.|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.|lane|suite|ste\.?|floor|fl\.)/i;
+// A line that continues the address above it: unit/floor fragments, building
+// names, or a bare 5-digit postal code.
+const ADDRESS_DETAIL =
+  /^\d{5}$|\d+\s?(?:층|호|동)|빌딩|타워|센터|플라자|^\s?\(?\d{5}\)?$|^(?:suite|ste\.?|floor|fl\.?|unit|#)/i;
+
+// Korean surnames are a closed set — a candidate starting with a common one
+// is far more likely a person than a random 2-4 char Hangul word.
+const KR_SURNAME_CHARS = new Set(
+  '김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민나진지엄채원천방공현함변염여추도소석선설마길위표명기반왕금옥육인맹제모탁'.split(
+    ''
+  )
+);
 
 /** Digits (plus a leading +) only — the comparison/dedup form of a number. */
 function normalizePhone(printed: string): string {
@@ -227,18 +239,48 @@ function findJobTitle(
   return null;
 }
 
-function findCompany(lines: string[], email: string | null): string | null {
+/** Lowercased alphanumerics only — for fuzzy line-vs-domain comparison. */
+function normalizeAlnum(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+}
+
+/**
+ * The organization label of the card's domain: first host label of the email
+ * domain, else of the website ("jane@acme.example.com" / "www.acme.io" → "acme").
+ */
+function domainSld(
+  email: string | null,
+  website: string | null
+): string | null {
+  const host =
+    email?.split('@')[1] ??
+    website
+      ?.replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '')
+      .split(/[/?#]/)[0];
+  const label = host?.split('.')[0]?.toLowerCase();
+  return label != null && label.length >= 3 ? label : null;
+}
+
+function findCompany(lines: string[], sld: string | null): string | null {
   for (const line of lines) {
     if (COMPANY_SUFFIX.test(line) && !EMAIL.test(line)) return line.trim();
   }
-  // Fallback: a line that carries the email's second-level domain
-  // ("jiwon@acme.com" → a line containing "acme").
-  const sld = email?.split('@')[1]?.split('.')[0];
-  if (sld != null && sld.length >= 3) {
-    const needle = sld.toLowerCase();
+  // A line that carries the card's domain label ("acme" → "ACME" / "Acme
+  // Networks" / "에이씨엠이"-style romanization won't match, but most do).
+  if (sld != null) {
     for (const line of lines) {
       if (EMAIL.test(line) || WEBSITE_EXPLICIT.test(line)) continue;
-      if (line.toLowerCase().includes(needle)) return line.trim();
+      if (normalizeAlnum(line).includes(sld)) return line.trim();
+    }
+  }
+  // Logo text: brands without a legal suffix print the name as a short
+  // all-caps line near the top. Single token only — a two-token caps line is
+  // as likely a person's name.
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const line = lines[i]!.trim();
+    if (/^[A-Z][A-Z0-9&.-]{1,19}$/.test(line) && !EN_TITLE.test(line)) {
+      return line;
     }
   }
   return null;
@@ -258,6 +300,7 @@ function nameTokenIn(line: string, company: string | null): string | null {
   if (/[0-9@]/.test(line)) return null;
   if (COMPANY_SUFFIX.test(line) || WEBSITE_EXPLICIT.test(line)) return null;
   if (KR_ADDRESS.test(line) || EN_ADDRESS.test(line)) return null;
+  let first: string | null = null;
   for (const token of line.split(/\s+/)) {
     // 2-3 chars only: 4-char tokens next to a title are usually loanword
     // modifiers ("프로덕트 디자이너"), not the rare 4-char name — those still
@@ -265,16 +308,24 @@ function nameTokenIn(line: string, company: string | null): string | null {
     if (!/^[가-힣]{2,3}$/.test(token)) continue;
     if (matchKrTitleToken(token)) continue;
     if (company != null && company.includes(token)) continue;
-    return token;
+    // A token starting with a common surname wins over one that doesn't.
+    if (KR_SURNAME_CHARS.has(token[0]!)) return token;
+    first ??= token;
   }
-  return null;
+  return first;
 }
 
 function findName(
   lines: string[],
   titleLineIndex: number,
-  company: string | null
+  company: string | null,
+  sld: string | null
 ): { name: string; lineIndex: number } | null {
+  // A line that just spells the card's domain is the brand, not a person
+  // ("BLUE BIRD" on a card with jane@bluebird.example.com).
+  const isBrandLine = (line: string) =>
+    sld != null && normalizeAlnum(line) === sld;
+
   // A Korean card often puts name and title on one line ("홍길동 대표").
   if (titleLineIndex >= 0) {
     const token = nameTokenIn(lines[titleLineIndex]!, company);
@@ -289,18 +340,26 @@ function findName(
   for (const i of order) {
     const line = lines[i]?.trim();
     if (line == null) continue;
-    if (company != null && line === company) continue;
+    if ((company != null && line === company) || isBrandLine(line)) continue;
     if (isNameCandidate(line)) return { name: line, lineIndex: i };
     // Mixed Korean+English name lines ("홍길동 Gildong Hong") fail the
     // whole-line patterns; fish the Hangul name token out instead.
     const token = nameTokenIn(line, company);
     if (token != null) return { name: token, lineIndex: i };
   }
+  // Whole-line pass: a Hangul candidate starting with a common surname beats
+  // an earlier one that doesn't (미소 vs 김하늘 — the latter is the person).
+  let fallback: { name: string; lineIndex: number } | null = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (company != null && line === company) continue;
-    if (isNameCandidate(line)) return { name: line, lineIndex: i };
+    if ((company != null && line === company) || isBrandLine(line)) continue;
+    if (!isNameCandidate(line)) continue;
+    if (!KR_NAME.test(line) || KR_SURNAME_CHARS.has(line[0]!)) {
+      return { name: line, lineIndex: i };
+    }
+    fallback ??= { name: line, lineIndex: i };
   }
+  if (fallback != null) return fallback;
   for (let i = 0; i < lines.length; i++) {
     const token = nameTokenIn(lines[i]!.trim(), company);
     if (token != null) return { name: token, lineIndex: i };
@@ -355,14 +414,31 @@ function findRoleByElimination(
 }
 
 function findAddress(lines: string[]): string | null {
-  let best: string | null = null;
-  for (const raw of lines) {
-    const line = raw.trim();
+  let bestIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
     if (!KR_ADDRESS.test(line) && !EN_ADDRESS.test(line)) continue;
     // Addresses are the longest lines on a card; longer match wins.
-    if (best == null || line.length > best.length) best = line;
+    if (bestIndex < 0 || line.length > lines[bestIndex]!.trim().length) {
+      bestIndex = i;
+    }
   }
-  return best;
+  if (bestIndex < 0) return null;
+  let address = lines[bestIndex]!.trim();
+  // Addresses often wrap onto a second OCR line — pull in the next line when
+  // it reads as a continuation (unit/floor, building name, postal code).
+  const next = lines[bestIndex + 1]?.trim();
+  if (
+    next != null &&
+    next.length <= 40 &&
+    !EMAIL.test(next) &&
+    (ADDRESS_DETAIL.test(next) ||
+      KR_ADDRESS.test(next) ||
+      EN_ADDRESS.test(next))
+  ) {
+    address += ` ${next}`;
+  }
+  return address;
 }
 
 /**
@@ -382,10 +458,11 @@ export function parseBusinessCard(
   const website = findWebsite(inputLines);
   if (email == null && phones.length === 0 && website == null) return null;
 
+  const sld = domainSld(email, website);
   const title = findJobTitle(inputLines);
-  const company = findCompany(inputLines, email);
+  const company = findCompany(inputLines, sld);
   const address = findAddress(inputLines);
-  const nameHit = findName(inputLines, title?.lineIndex ?? -1, company);
+  const nameHit = findName(inputLines, title?.lineIndex ?? -1, company, sld);
 
   let jobTitle = title?.title ?? null;
   let department = title?.department ?? null;
@@ -398,7 +475,10 @@ export function parseBusinessCard(
         EMAIL.test(raw) ||
         WEBSITE_EXPLICIT.test(raw) ||
         phones.some((p) => raw.includes(p.number)) ||
-        (address != null && raw.trim() === address) ||
+        // includes(): a merged two-line address must claim both lines.
+        (address != null &&
+          raw.trim().length >= 4 &&
+          address.includes(raw.trim())) ||
         (company != null && raw.trim() === company)
       ) {
         used.add(i);

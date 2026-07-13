@@ -181,6 +181,59 @@ describe('parseBusinessCard', () => {
     expect(r!.name).toBe('홍길동');
   });
 
+  it('merges a two-line address (detail line follows)', () => {
+    const r = parseBusinessCard([
+      '홍길동',
+      '경기 성남시 분당구 판교로 123',
+      '예제타워 5층 (13486)',
+      '010-1234-5678',
+    ]);
+    expect(r!.address).toBe(
+      '경기 성남시 분당구 판교로 123 예제타워 5층 (13486)'
+    );
+  });
+
+  it('recognizes a province-abbreviation address (서울/경기 …)', () => {
+    const r = parseBusinessCard(['서울 강남구 테헤란로 123', '010-1234-5678']);
+    expect(r!.address).toBe('서울 강남구 테헤란로 123');
+  });
+
+  it('finds the company from the website domain when there is no email', () => {
+    const r = parseBusinessCard([
+      'ACME',
+      'Jane Doe',
+      'www.acme.example.com',
+      '+1 415 555 0100',
+    ]);
+    expect(r!.company).toBe('ACME');
+  });
+
+  it('treats a top all-caps single token as the company (logo text)', () => {
+    const r = parseBusinessCard([
+      'BLUEBIRD',
+      'Jane Doe',
+      'CEO',
+      '+1 415 555 0100',
+    ]);
+    expect(r!.company).toBe('BLUEBIRD');
+    expect(r!.name).toBe('Jane Doe');
+  });
+
+  it('does not take the brand line as a name (domain match)', () => {
+    const r = parseBusinessCard([
+      'Blue Bird',
+      'Jane Doe',
+      'jane@bluebird.example.com',
+    ]);
+    expect(r!.name).toBe('Jane Doe');
+    expect(r!.company).toBe('Blue Bird');
+  });
+
+  it('prefers a surname-initial Hangul candidate as the name', () => {
+    const r = parseBusinessCard(['미소', '김하늘', '010-1234-5678']);
+    expect(r!.name).toBe('김하늘');
+  });
+
   it('ignores a far-from-name unknown line (no org marker)', () => {
     const r = parseBusinessCard([
       'Jane Doe',
