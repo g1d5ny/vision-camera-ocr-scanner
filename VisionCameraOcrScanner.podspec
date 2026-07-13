@@ -25,7 +25,7 @@ Pod::Spec.new do |s|
   # VisionCamera transitively provides NitroImage (used by its Frame types).
   s.dependency 'VisionCamera'
 
-  load 'nitrogen/generated/ios/VisionCameraOcrScanner+autolinking.rb'
+  load File.join(__dir__, 'nitrogen/generated/ios/VisionCameraOcrScanner+autolinking.rb')
   add_nitrogen_files(s)
 
   install_modules_dependencies(s)

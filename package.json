@@ -1,7 +1,7 @@
 {
   "name": "@jieonist/vision-camera-ocr-scanner",
   "version": "0.1.0",
-  "description": "On-device OCR structured scanner (card, business card, receipt, MRZ) for React Native — built on VisionCamera + Nitro",
+  "description": "On-device structured OCR scanner (MRZ passport, credit card, business card) for React Native — built on VisionCamera + Nitro",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -36,7 +36,7 @@
   "scripts": {
     "example": "yarn workspace @jieonist/vision-camera-ocr-scanner-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
-    "prepare": "bob build",
+    "prepack": "bob build",
     "nitrogen": "nitrogen",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
@@ -77,7 +77,8 @@
   },
   "homepage": "https://github.com/g1d5ny/vision-camera-ocr-scanner#readme",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

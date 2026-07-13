@@ -1,26 +1,26 @@
 # @jieonist/vision-camera-ocr-scanner
 
-On-device, structured **OCR scanner** for React Native — scan a **credit card, business card, receipt, or passport (MRZ)** with the camera and get back **structured data**, not just raw text.
+On-device, structured **OCR scanner** for React Native — scan a **passport (MRZ), credit card, or business card** with the camera and get back **structured data**, not just raw text.
 
 Built as a [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) frame processor plugin on top of **Apple Vision** (iOS) and **Google ML Kit** (Android), powered by [Nitro Modules](https://nitro.margelo.com/) for zero-copy, high-FPS frame processing.
 
 📖 **Documentation:** **https://g1d5ny.github.io/vision-camera-ocr-scanner/** ([한국어](https://g1d5ny.github.io/vision-camera-ocr-scanner/ko/))
 
-> 🚧 **Status: early development.** **MRZ (passport), credit-card, and business-card** scanning work today on **iOS and Android**; the receipt mode is on the [Roadmap](#roadmap). Not yet published to npm. Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
+> 🚧 **Status: early development.** **MRZ (passport), credit-card, and business-card** scanning work today on **iOS and Android**; the receipt mode is on the [Roadmap](#roadmap). Full docs: **https://g1d5ny.github.io/vision-camera-ocr-scanner/**
 
 ## Why this library
 
 - 🆓 **Free & on-device** — no API keys, no servers, no per-scan fees. Nothing leaves the device.
 - 🔒 **Privacy-first** — great for apps that can't send card/ID/receipt images to a cloud OCR service.
 - 🏗️ **New Architecture native** — Nitro + Fabric, fast per-frame processing.
-- 🧩 **Structured output** — card number, contact fields, receipt totals, MRZ fields — already parsed.
+- 🧩 **Structured output** — MRZ fields, card number, contact fields — already parsed.
 
 Not trying to be a paid enterprise KYC SDK (BlinkID, Dynamsoft, Scanbot). This is the **"good enough, free, on-device"** option for indie and small apps.
 
 ## Requirements
 
 - React Native **New Architecture** (Fabric + TurboModules/Nitro) — **required**, no old-architecture support.
-- [`react-native-vision-camera`](https://github.com/mrousavy/react-native-vision-camera) v4+ (v5 recommended).
+- [`react-native-vision-camera`](https://github.com/mrousavy/react-native-vision-camera) v5+.
 - iOS 15+ / Android (ML Kit).
 
 ### Platforms
@@ -34,12 +34,12 @@ Not trying to be a paid enterprise KYC SDK (BlinkID, Dynamsoft, Scanbot). This i
 ## Installation
 
 ```sh
-npm install @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-worklets react-native-vision-camera-worklets
+npm install @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-nitro-image react-native-worklets react-native-vision-camera-worklets
 ```
 
 ```sh
 # or with yarn
-yarn add @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-worklets react-native-vision-camera-worklets
+yarn add @jieonist/vision-camera-ocr-scanner react-native-vision-camera react-native-nitro-modules react-native-nitro-image react-native-worklets react-native-vision-camera-worklets
 ```
 
 iOS:
@@ -184,7 +184,7 @@ Add the platform strings:
 - [x] Business card → contact (name / company / title / phones / email / address)
 - [ ] Receipt → merchant / date / total
 - [ ] Expo config plugin
-- [ ] First npm release (`0.1.0`)
+- [x] First npm release (`0.1.0`)
 
 ## Documentation
 

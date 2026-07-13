@@ -23,7 +23,7 @@
 
 ```sh
 npm install @jieonist/vision-camera-ocr-scanner \
-  react-native-vision-camera react-native-nitro-modules \
+  react-native-vision-camera react-native-nitro-modules react-native-nitro-image \
   react-native-worklets react-native-vision-camera-worklets
 cd ios && pod install
 ```
