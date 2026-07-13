@@ -37,6 +37,7 @@ export default defineConfig({
             text: 'Guide',
             items: [
               { text: 'Getting Started', link: '/guide/getting-started' },
+              { text: 'How Scanning Works', link: '/guide/flow' },
               { text: 'MRZ Scanning', link: '/guide/mrz' },
               { text: 'Credit Card Scanning', link: '/guide/card' },
               { text: 'Business Card Scanning', link: '/guide/business-card' },
@@ -61,6 +62,7 @@ export default defineConfig({
             text: '가이드',
             items: [
               { text: '시작하기', link: '/ko/guide/getting-started' },
+              { text: '스캔 동작 흐름', link: '/ko/guide/flow' },
               { text: 'MRZ 스캔', link: '/ko/guide/mrz' },
               { text: '신용카드 스캔', link: '/ko/guide/card' },
               { text: '명함 스캔', link: '/ko/guide/business-card' },

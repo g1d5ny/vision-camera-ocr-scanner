@@ -128,10 +128,10 @@ export function CardScanner() {
 | `parseMrz(lines)` | `MrzResult \| null` — passport/ID fields | ICAO 9303 check digits |
 | `parseCard(lines)` | `CardResult \| null` — number, brand, expiry, holder | Luhn checksum |
 | `parseBusinessCard(lines)` | `BusinessCardResult \| null` — name, company, title, phones, email, website, address | none (heuristics) — pair with its scan session |
-| `detectDocument(lines)` | `DetectedDocument \| null` — auto-detect MRZ **or** card | runs both; validates |
+| `detectDocument(lines)` | `DetectedDocument \| null` — auto-detect MRZ, card, **or** business card | validates MRZ/card; bizcard needs an email |
 | `detectBrand(number)` | brand string from a known card number | — |
 
-For a "scan any document" flow, `detectDocument(lines)` runs both self-validating parsers and returns `{ type: 'mrz' | 'card', valid, data }` (MRZ wins ambiguous ties). Business cards are deliberately excluded — a phone number alone would make almost any text "detect" as one. When your screen already knows the type, call the specific parser — fewer false positives and a mode-specific guide box.
+For a "scan any document" flow, `detectDocument(lines)` returns `{ type: 'mrz' | 'card', valid, data }` or `{ type: 'bizcard', data }`. Self-validating documents win (MRZ over card on ambiguous ties); a business card is the guarded last resort and only detects when an **email** is present — a phone number alone would make almost any text "detect" as one. When your screen already knows the type, call the specific parser — fewer false positives and a mode-specific guide box.
 
 See the docs for the full [`MrzResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/mrz), [`CardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/card), and [`BusinessCardResult`](https://g1d5ny.github.io/vision-camera-ocr-scanner/guide/business-card) shapes.
 
@@ -143,6 +143,12 @@ interface OcrResult {
   text: string;
   /** Recognized lines, ordered top-to-bottom. Feed these to parseMrz / parseCard. */
   lines: string[];
+  /**
+   * Layout box per line (same order as `lines`): x/y/width/height normalized
+   * 0..1 against the scanned region, upright, top-left origin. Pass to
+   * parseBusinessCard(lines, lineItems) so text size becomes a signal.
+   */
+  lineItems: OcrLine[];
 }
 ```
 

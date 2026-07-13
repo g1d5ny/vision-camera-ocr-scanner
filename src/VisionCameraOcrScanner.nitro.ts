@@ -2,6 +2,25 @@ import type { Frame } from 'react-native-vision-camera';
 import type { HybridObject } from 'react-native-nitro-modules';
 
 /**
+ * One recognized line with its layout box.
+ *
+ * Coordinates are normalized 0..1 against the scanned region (the ROI — the
+ * central band by default), in upright display orientation with a top-left
+ * origin, identical on both platforms. Relative comparisons (which line is
+ * taller / higher on the card) are the intended use.
+ *
+ * An all-zero box is the "no bounding box" sentinel (ML Kit occasionally
+ * returns lines without one) — treat a zero height as unknown, not tiny.
+ */
+export interface OcrLine {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
  * Raw OCR output from the native engines (Apple Vision on iOS, ML Kit on Android).
  *
  * Mode-specific structuring (MRZ, card, business card, receipt) happens in the
@@ -12,6 +31,12 @@ export interface OcrResult {
   text: string;
   /** Recognized text split into lines, ordered top-to-bottom. */
   lines: string[];
+  /**
+   * Layout boxes for each line, same order and length as `lines`. Lets
+   * parsers use size/position signals (a business card's tallest text is the
+   * name or logo).
+   */
+  lineItems: OcrLine[];
 }
 
 /** Region of the frame to recognize, in display (upright) coordinates. */

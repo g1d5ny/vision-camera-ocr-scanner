@@ -11,8 +11,8 @@ describe('detectDocument', () => {
   it('detects a valid MRZ', () => {
     const result = detectDocument(MRZ_LINES);
     expect(result?.type).toBe('mrz');
-    expect(result?.valid).toBe(true);
     if (result?.type === 'mrz') {
+      expect(result.valid).toBe(true);
       expect(result.data.documentNumber).toBe('C01X00T47');
     }
   });
@@ -20,8 +20,8 @@ describe('detectDocument', () => {
   it('detects a valid card', () => {
     const result = detectDocument(['4111 1111 1111 1111', 'VALID THRU 08/27']);
     expect(result?.type).toBe('card');
-    expect(result?.valid).toBe(true);
     if (result?.type === 'card') {
+      expect(result.valid).toBe(true);
       expect(result.data.brand).toBe('visa');
     }
   });
@@ -30,13 +30,33 @@ describe('detectDocument', () => {
     // MRZ lines plus a noisy card-ish line; MRZ self-validates so it wins.
     const result = detectDocument([...MRZ_LINES, '4111 1111 1111 1112']);
     expect(result?.type).toBe('mrz');
-    expect(result?.valid).toBe(true);
+    if (result?.type === 'mrz') expect(result.valid).toBe(true);
   });
 
   it('returns a card with valid:false when only a Luhn-failing card is present', () => {
     const result = detectDocument(['4111 1111 1111 1112']);
     expect(result?.type).toBe('card');
-    expect(result?.valid).toBe(false);
+    if (result?.type === 'card') expect(result.valid).toBe(false);
+  });
+
+  it('detects a business card when an email is present', () => {
+    const result = detectDocument([
+      '주식회사 예제기술',
+      '홍길동',
+      '대표이사',
+      'M. 010-1234-5678',
+      'gildong@example.com',
+    ]);
+    expect(result?.type).toBe('bizcard');
+    if (result?.type === 'bizcard') {
+      expect(result.data.name).toBe('홍길동');
+      expect(result.data.email).toBe('gildong@example.com');
+    }
+  });
+
+  it('does not detect a business card from a phone number alone', () => {
+    // Receipts and posters carry phone numbers — email is the required anchor.
+    expect(detectDocument(['어떤 가게', '02-1234-5678'])).toBeNull();
   });
 
   it('returns null for noise', () => {

@@ -247,6 +247,59 @@ describe('parseBusinessCard', () => {
   });
 });
 
+describe('parseBusinessCard with layout (lineItems)', () => {
+  const items = (lines: string[], heights: number[]) =>
+    lines.map((text, i) => ({
+      text,
+      x: 0.1,
+      y: i * 0.1,
+      width: 0.5,
+      height: heights[i] ?? 0.03,
+    }));
+
+  it('picks the tallest candidate as the name', () => {
+    const lines = ['Blue Bird', 'Jane Doe', '+1 415 555 0100'];
+    const r = parseBusinessCard(lines, items(lines, [0.04, 0.08, 0.03]));
+    expect(r!.name).toBe('Jane Doe');
+  });
+
+  it('penalizes the very first line (big top text is the brand)', () => {
+    const lines = ['Big Brand', 'Jane Doe', '+1 415 555 0100'];
+    const r = parseBusinessCard(lines, items(lines, [0.07, 0.06, 0.03]));
+    expect(r!.name).toBe('Jane Doe');
+  });
+
+  it('takes an unexplained line taller than the name as the company', () => {
+    const lines = ['에이스브랜드', '김하늘', '010-1234-5678'];
+    const r = parseBusinessCard(lines, items(lines, [0.09, 0.05, 0.03]));
+    expect(r!.company).toBe('에이스브랜드');
+    expect(r!.name).toBe('김하늘');
+  });
+
+  it('rejects a role candidate that prints taller than the name', () => {
+    const lines = ['Jane Doe', 'barista & roaster', 'jane@acme.example.com'];
+    const short = parseBusinessCard(lines, items(lines, [0.05, 0.04, 0.03]));
+    expect(short!.jobTitle).toBe('barista & roaster'); // smaller → role
+    const tall = parseBusinessCard(lines, items(lines, [0.05, 0.09, 0.03]));
+    // Adjacent to the name, but far bigger than it — decoration, not a title.
+    expect(tall!.jobTitle).toBeNull();
+  });
+
+  it('behaves like the text-only parser when lengths mismatch', () => {
+    const lines = ['미소', '김하늘', '010-1234-5678'];
+    const r = parseBusinessCard(lines, items(['미소'], [0.2]));
+    expect(r!.name).toBe('김하늘'); // surname rule, layout ignored
+  });
+
+  it('ignores heights when a candidate has the zero-box sentinel', () => {
+    // ML Kit sometimes returns a line without a bounding box (all-zero
+    // sentinel) — heights are then incomparable and text rules must decide.
+    const lines = ['미소', '김하늘', '010-1234-5678'];
+    const r = parseBusinessCard(lines, items(lines, [0.2, 0, 0.03]));
+    expect(r!.name).toBe('김하늘'); // surname rule despite 미소 being "taller"
+  });
+});
+
 describe('createBusinessCardScanSession', () => {
   const read = (over: Partial<ReturnType<typeof base>> = {}) => ({
     ...base(),

@@ -1,6 +1,7 @@
 import { NitroModules } from 'react-native-nitro-modules';
 import type {
   VisionCameraOcrScanner,
+  OcrLine,
   OcrResult,
   ScanOptions,
   ScanRoi,
@@ -23,7 +24,13 @@ export {
   createMrzScanSession,
 } from './scanSession';
 export type { ScanSession, ScanSessionOptions } from './scanSession';
-export type { OcrResult, ScanOptions, ScanRoi, VisionCameraOcrScanner };
+export type {
+  OcrLine,
+  OcrResult,
+  ScanOptions,
+  ScanRoi,
+  VisionCameraOcrScanner,
+};
 
 let scanner: VisionCameraOcrScanner | null = null;
 

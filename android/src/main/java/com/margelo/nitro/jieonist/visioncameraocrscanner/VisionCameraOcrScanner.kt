@@ -35,13 +35,13 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
 
   @OptIn(ExperimentalGetImage::class)
   override fun scan(frame: HybridFrameSpec, options: ScanOptions?): OcrResult {
-    val nativeFrame = frame as? NativeFrame ?: return OcrResult("", arrayOf())
+    val nativeFrame = frame as? NativeFrame ?: return OcrResult("", arrayOf(), arrayOf())
     val imageProxy = nativeFrame.image
     val mediaImage = try {
       imageProxy.image
     } catch (_: Throwable) {
       null
-    } ?: return OcrResult("", arrayOf())
+    } ?: return OcrResult("", arrayOf(), arrayOf())
 
     val rotation = imageProxy.imageInfo.rotationDegrees
     // Default ROI is the central band (display-vertical middle half) — the
@@ -59,14 +59,22 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
     // buffer: if the await below times out, the recognizer may still be
     // reading its input after the caller disposes the frame — harmless with a
     // copy, a native crash with the zero-copy media Image.
+    val nv21 = try {
+      cropToNv21(mediaImage, crop)
+    } catch (_: Throwable) {
+      return OcrResult("", arrayOf(), arrayOf())
+    }
     val input = try {
-      val nv21 = cropToNv21(mediaImage, crop)
       InputImage.fromByteArray(
         nv21.bytes, nv21.width, nv21.height, rotation, InputImage.IMAGE_FORMAT_NV21
       )
     } catch (_: Throwable) {
-      return OcrResult("", arrayOf())
+      return OcrResult("", arrayOf(), arrayOf())
     }
+    // ML Kit returns bounding boxes in the upright (display) coordinate
+    // system of the input, so the normalization dims swap for 90/270.
+    val uprightWidth = if (rotation == 90 || rotation == 270) nv21.height else nv21.width
+    val uprightHeight = if (rotation == 90 || rotation == 270) nv21.width else nv21.height
     val text = try {
       // scan() runs on the frame-processor thread (never the main thread), so
       // blocking on the recognizer here is safe — and required, since the frame
@@ -77,7 +85,7 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
     } catch (_: Throwable) {
       // The recognizer may still be reading the pooled buffer — retire it.
       poolMaybeInUse = true
-      return OcrResult("", arrayOf())
+      return OcrResult("", arrayOf(), arrayOf())
     }
 
     // ML Kit does not guarantee reading order. Sorting by top alone is not
@@ -104,10 +112,26 @@ class VisionCameraOcrScanner : HybridVisionCameraOcrScannerSpec() {
         rows.add(Row(mutableListOf(line), box?.top ?: 0, box?.bottom ?: 0))
       }
     }
-    val lines = rows
+    val ordered = rows
       .flatMap { row -> row.lines.sortedBy { it.boundingBox?.left ?: Int.MAX_VALUE } }
-      .map { it.text }
-    return OcrResult(lines.joinToString("\n"), lines.toTypedArray())
+    val lines = ordered.map { it.text }
+    // Normalized 0..1 against the scanned region (the crop), upright, with a
+    // top-left origin — the same space the iOS implementation reports.
+    val lineItems = ordered.map { line ->
+      val box = line.boundingBox
+      if (box == null) {
+        OcrLine(line.text, 0.0, 0.0, 0.0, 0.0)
+      } else {
+        OcrLine(
+          line.text,
+          box.left.toDouble() / uprightWidth,
+          box.top.toDouble() / uprightHeight,
+          box.width().toDouble() / uprightWidth,
+          box.height().toDouble() / uprightHeight
+        )
+      }
+    }
+    return OcrResult(lines.joinToString("\n"), lines.toTypedArray(), lineItems.toTypedArray())
   }
 
   private class Nv21Crop(val bytes: ByteArray, val width: Int, val height: Int)

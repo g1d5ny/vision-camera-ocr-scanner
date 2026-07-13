@@ -90,7 +90,12 @@
 - [x] 실기기 피드백 반영 2차 (Codex 상의): **소거법 fallback** — 키워드 사전 밖 직함/부서를 '강한 패턴 필드가 아닌 이름 인접 짧은 줄'로 인식, `department` 필드 분리, 슬로건 가드 (jest 70/70)
 - [x] 인식률 보강 1단계 (Codex 상의, TS만): 두 줄 주소 병합 + 시·도 약칭/우편번호, 회사 추론에 웹사이트 도메인·상단 대문자 로고 줄 추가, 성씨 부스트(닫힌 집합), 브랜드 줄 이름 억제 (jest 76/76)
 - [x] 기기에서 실제 명함 스캔 재검증 — 1단계 반영 후 이름·직함·회사·주소 정상 인식 (사용자 확인, 2026-07-13)
-- [ ] (후속 2단계) OcrResult에 줄별 bounding box(`lineItems?: {text,x,y,width,height}[]`, 0..1 정규화·상단좌측 원점) 노출 → '가장 큰 글씨=이름/회사' 레이아웃 휴리스틱 + 후보 점수화 (Codex 권고 스펙 확정됨)
+- [x] **2단계 (레이아웃 신호)**: `OcrResult.lineItems: OcrLine[]` (스캔 영역 기준 0..1 정규화·상단좌측 원점, 양 플랫폼 동일 — iOS ROI 상대성은 macOS Vision 실험으로 실증) + `parseBusinessCard(lines, lineItems?)` 레이아웃 휴리스틱: 최대 높이 후보=이름(첫 줄 페널티), 이름보다 큰 미설명 줄=회사 로고, 이름보다 큰 줄은 role 제외, zero-box 센티널은 unknown 처리 (jest 84/84)
+- [x] 자동 모드에 명함 감지 추가 — `detectDocument(lines, lineItems?)`에 이메일 필수 가드 fallback (전화만으론 미감지)
+- [x] 스캔 동작 흐름 문서 (en/ko `guide/flow`) — 공통 파이프라인 + 여권→카드→명함 순 설명
+- [x] 2단계 nitro-reviewer 리뷰 — Blocker 0, W1(zero-box 센티널)·N1(fromByteArray try)·N2(detectDocument lineItems 전달)·N3(flow 문서) 전부 반영, 양 플랫폼 빌드·기기 설치 확인
+- [x] 기기에서 명함 스캔 재검증 — 2단계 레이아웃 신호 반영 후 iOS·Android 실기기 모두 이상 없음 (자동 모드 명함 감지 포함, 사용자 확인 2026-07-13)
+- [ ] 릴리스 노트에 `OcrResult.lineItems` required 필드 추가 언급 (OcrResult를 직접 구성하는 소비자 코드는 수정 필요)
 
 ### 4) 영수증 — 상호/날짜/합계
 - [ ] Nitro 스펙에 영수증 결과 타입 정의

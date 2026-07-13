@@ -1,3 +1,5 @@
+import type { OcrLine } from './VisionCameraOcrScanner.nitro';
+
 /** One phone number found on a business card. */
 export interface BusinessCardPhone {
   /**
@@ -319,7 +321,8 @@ function findName(
   lines: string[],
   titleLineIndex: number,
   company: string | null,
-  sld: string | null
+  sld: string | null,
+  heightOf: (index: number) => number
 ): { name: string; lineIndex: number } | null {
   // A line that just spells the card's domain is the brand, not a person
   // ("BLUE BIRD" on a card with jane@bluebird.example.com).
@@ -332,7 +335,7 @@ function findName(
     if (token != null) return { name: token, lineIndex: titleLineIndex };
   }
   // Otherwise prefer the line adjacent to the title — that's where the name
-  // sits on most layouts — then fall back to the first candidate anywhere.
+  // sits on most layouts — then fall back to the candidates anywhere.
   const order =
     titleLineIndex >= 0
       ? [titleLineIndex - 1, titleLineIndex + 1]
@@ -347,19 +350,32 @@ function findName(
     const token = nameTokenIn(line, company);
     if (token != null) return { name: token, lineIndex: i };
   }
-  // Whole-line pass: a Hangul candidate starting with a common surname beats
-  // an earlier one that doesn't (미소 vs 김하늘 — the latter is the person).
-  let fallback: { name: string; lineIndex: number } | null = null;
+  // Whole-line pass. When layout boxes are available the tallest candidate
+  // wins (the name is the biggest text on most cards) — with a penalty for
+  // the very first line, where big text is usually the brand. Ties (and the
+  // no-layout case, where every height is 0) fall back to the text rules: a
+  // Hangul candidate starting with a common surname beats one that doesn't.
+  const candidates: { name: string; lineIndex: number }[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
     if ((company != null && line === company) || isBrandLine(line)) continue;
     if (!isNameCandidate(line)) continue;
-    if (!KR_NAME.test(line) || KR_SURNAME_CHARS.has(line[0]!)) {
-      return { name: line, lineIndex: i };
-    }
-    fallback ??= { name: line, lineIndex: i };
+    candidates.push({ name: line, lineIndex: i });
   }
-  if (fallback != null) return fallback;
+  if (candidates.length > 0) {
+    // A zero box is ML Kit's "no boundingBox" sentinel — heights are only
+    // comparable when every candidate is actually measured.
+    const measured = candidates.every((c) => heightOf(c.lineIndex) > 0);
+    const scoreOf = (c: { lineIndex: number }) =>
+      measured ? heightOf(c.lineIndex) * (c.lineIndex === 0 ? 0.75 : 1) : 0;
+    const top = Math.max(...candidates.map(scoreOf));
+    const contenders = candidates.filter((c) => scoreOf(c) >= top * 0.9);
+    return (
+      contenders.find(
+        (c) => !KR_NAME.test(c.name) || KR_SURNAME_CHARS.has(c.name[0]!)
+      ) ?? contenders[0]!
+    );
+  }
   for (let i = 0; i < lines.length; i++) {
     const token = nameTokenIn(lines[i]!.trim(), company);
     if (token != null) return { name: token, lineIndex: i };
@@ -381,12 +397,14 @@ function findName(
 function findRoleByElimination(
   lines: string[],
   used: Set<number>,
-  nameLineIndex: number
+  nameLineIndex: number,
+  heightOk: (index: number) => boolean
 ): { text: string; isDepartment: boolean } | null {
   let best: { text: string; score: number; isDepartment: boolean } | null =
     null;
   for (let i = 0; i < lines.length; i++) {
     if (used.has(i)) continue;
+    if (!heightOk(i)) continue;
     const line = lines[i]!.trim();
     if (line.length < 2 || line.length > 28) continue;
     if (/[0-9@]/.test(line)) continue;
@@ -451,46 +469,95 @@ function findAddress(lines: string[]): string | null {
  * misreads.
  */
 export function parseBusinessCard(
-  inputLines: string[]
+  inputLines: string[],
+  lineItems?: OcrLine[]
 ): BusinessCardResult | null {
   const email = inputLines.join(' ').match(EMAIL)?.[0] ?? null;
   const phones = findPhones(inputLines);
   const website = findWebsite(inputLines);
   if (email == null && phones.length === 0 && website == null) return null;
 
+  // Layout boxes (when the caller passes scan()'s lineItems through) turn
+  // text-size into a signal; without them every height reads as 0 and the
+  // text-only rules decide alone.
+  const hasLayout = lineItems != null && lineItems.length === inputLines.length;
+  const heightOf = (index: number) =>
+    hasLayout ? (lineItems[index]?.height ?? 0) : 0;
+
   const sld = domainSld(email, website);
   const title = findJobTitle(inputLines);
-  const company = findCompany(inputLines, sld);
+  let company = findCompany(inputLines, sld);
   const address = findAddress(inputLines);
-  const nameHit = findName(inputLines, title?.lineIndex ?? -1, company, sld);
+  const nameHit = findName(
+    inputLines,
+    title?.lineIndex ?? -1,
+    company,
+    sld,
+    heightOf
+  );
+
+  // Mark every line already explained by a strong pattern; what's left feeds
+  // the layout company fallback and the elimination role pool.
+  const used = new Set<number>();
+  inputLines.forEach((raw, i) => {
+    if (
+      EMAIL.test(raw) ||
+      WEBSITE_EXPLICIT.test(raw) ||
+      phones.some((p) => raw.includes(p.number)) ||
+      // includes(): a merged two-line address must claim both lines.
+      (address != null &&
+        raw.trim().length >= 4 &&
+        address.includes(raw.trim())) ||
+      (company != null && raw.trim() === company)
+    ) {
+      used.add(i);
+    }
+  });
+  if (title != null) used.add(title.lineIndex);
+  if (nameHit != null) used.add(nameHit.lineIndex);
+
+  // Layout fallback for the company: logos print big, so an unexplained
+  // short line at least as tall as the name is the brand. A zero height is
+  // the "no boundingBox" sentinel — no comparison is possible then.
+  if (
+    company == null &&
+    hasLayout &&
+    nameHit != null &&
+    heightOf(nameHit.lineIndex) > 0
+  ) {
+    let tallest: { text: string; index: number } | null = null;
+    for (let i = 0; i < inputLines.length; i++) {
+      if (used.has(i)) continue;
+      const line = inputLines[i]!.trim();
+      if (line.length < 2 || line.length > 24) continue;
+      if (/[0-9@]/.test(line)) continue;
+      if (line.split(/\s+/).length > 3) continue;
+      if (heightOf(i) < heightOf(nameHit.lineIndex) * 0.9) continue;
+      if (tallest == null || heightOf(i) > heightOf(tallest.index)) {
+        tallest = { text: line, index: i };
+      }
+    }
+    if (tallest != null) {
+      company = tallest.text;
+      used.add(tallest.index);
+    }
+  }
 
   let jobTitle = title?.title ?? null;
   let department = title?.department ?? null;
   if (jobTitle == null || department == null) {
-    // Mark every line already explained by a strong pattern; what's left is
-    // the elimination candidate pool.
-    const used = new Set<number>();
-    inputLines.forEach((raw, i) => {
-      if (
-        EMAIL.test(raw) ||
-        WEBSITE_EXPLICIT.test(raw) ||
-        phones.some((p) => raw.includes(p.number)) ||
-        // includes(): a merged two-line address must claim both lines.
-        (address != null &&
-          raw.trim().length >= 4 &&
-          address.includes(raw.trim())) ||
-        (company != null && raw.trim() === company)
-      ) {
-        used.add(i);
-      }
-    });
-    if (title != null) used.add(title.lineIndex);
-    if (nameHit != null) used.add(nameHit.lineIndex);
-
     const role = findRoleByElimination(
       inputLines,
       used,
-      nameHit?.lineIndex ?? -1
+      nameHit?.lineIndex ?? -1,
+      // A role line prints smaller than the name — a taller unexplained line
+      // is brand/decoration, not a title. Zero heights are the "no
+      // boundingBox" sentinel and can't be compared.
+      hasLayout && nameHit != null && heightOf(nameHit.lineIndex) > 0
+        ? (i) =>
+            heightOf(i) === 0 ||
+            heightOf(i) <= heightOf(nameHit.lineIndex) * 1.15
+        : () => true
     );
     if (role != null) {
       if (role.isDepartment) {

@@ -20,7 +20,7 @@ class VisionCameraOcrScanner: HybridVisionCameraOcrScannerSpec {
               let sampleBuffer = nativeFrame.sampleBuffer,
               let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
         else {
-            return OcrResult(text: "", lines: [])
+            return OcrResult(text: "", lines: [], lineItems: [])
         }
 
         // regionOfInterest is zero-copy and applies in the oriented (upright)
@@ -43,7 +43,7 @@ class VisionCameraOcrScanner: HybridVisionCameraOcrScannerSpec {
         do {
             try handler.perform([request])
         } catch {
-            return OcrResult(text: "", lines: [])
+            return OcrResult(text: "", lines: [], lineItems: [])
         }
 
         // Vision does not guarantee reading order, and fragments on the same
@@ -52,29 +52,44 @@ class VisionCameraOcrScanner: HybridVisionCameraOcrScannerSpec {
         // rows by vertical overlap — growing the row bounds as fragments join,
         // so grouping doesn't hinge on the first fragment — then read each row
         // left-to-right. Mirrors the Android implementation. boundingBox has a
-        // lower-left origin with y up; flip to y-down top/bottom so the logic
-        // reads the same on both platforms.
+        // lower-left origin with y up and is normalized to the ROI (verified
+        // empirically); flip to y-down so lineItems use the same
+        // top-left-origin, ROI-normalized space as Android.
         let entries = (request.results ?? [])
-            .compactMap { observation -> (top: CGFloat, bottom: CGFloat, left: CGFloat, text: String)? in
+            .compactMap { observation -> (top: CGFloat, bottom: CGFloat, left: CGFloat, width: CGFloat, text: String)? in
                 guard let text = observation.topCandidates(1).first?.string else { return nil }
                 let box = observation.boundingBox
-                return (top: 1 - box.maxY, bottom: 1 - box.minY, left: box.minX, text: text)
+                return (top: 1 - box.maxY, bottom: 1 - box.minY, left: box.minX, width: box.width, text: text)
             }
             .sorted { $0.top < $1.top }
-        var rows: [(lines: [(left: CGFloat, text: String)], top: CGFloat, bottom: CGFloat)] = []
+        var rows: [(entries: [(top: CGFloat, bottom: CGFloat, left: CGFloat, width: CGFloat, text: String)], top: CGFloat, bottom: CGFloat)] = []
         for entry in entries {
             if let i = rows.indices.last, rows[i].bottom > rows[i].top,
                entry.top < rows[i].bottom - (rows[i].bottom - rows[i].top) / 2 {
-                rows[i].lines.append((entry.left, entry.text))
+                rows[i].entries.append(entry)
                 rows[i].top = min(rows[i].top, entry.top)
                 rows[i].bottom = max(rows[i].bottom, entry.bottom)
             } else {
-                rows.append((lines: [(entry.left, entry.text)], top: entry.top, bottom: entry.bottom))
+                rows.append((entries: [entry], top: entry.top, bottom: entry.bottom))
             }
         }
-        let lines = rows.flatMap { row in
-            row.lines.sorted { $0.left < $1.left }.map { $0.text }
+        let ordered = rows.flatMap { row in
+            row.entries.sorted { $0.left < $1.left }
         }
-        return OcrResult(text: lines.joined(separator: "\n"), lines: lines)
+        let lines = ordered.map { $0.text }
+        let lineItems = ordered.map { entry in
+            OcrLine(
+                text: entry.text,
+                x: entry.left,
+                y: entry.top,
+                width: entry.width,
+                height: entry.bottom - entry.top
+            )
+        }
+        return OcrResult(
+            text: lines.joined(separator: "\n"),
+            lines: lines,
+            lineItems: lineItems
+        )
     }
 }

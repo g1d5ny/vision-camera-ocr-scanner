@@ -38,6 +38,8 @@ interface BusinessCardResult {
 
 **Titles aren't dictionary-bound.** Known keywords (CEO, 팀장, Engineer…) match directly, and anything else is caught by **elimination**: a short line that is none of the strongly-patterned fields (contact, address, company, name) and sits next to the name is read as the role. Lines carrying an org-unit marker (R&D, Team, 본부, 팀…) land in `department`; slogans and sentence-shaped lines are rejected.
 
+**Pass `lineItems` for layout signals.** `parseBusinessCard(lines, ocr.lineItems)` turns text size into evidence — the tallest line is the name (big top text reads as the brand), an unexplained line taller than the name is the company logo, and a line printed larger than the name can't be a title.
+
 ::: info No `valid` field
 Unlike MRZ (check digits) and payment cards (Luhn), a business card carries **nothing to checksum**, so there is no `valid` flag — every field is best-effort. Judge a result by the fields your flow needs (e.g. require `email` or a phone), and use the scan session below to reject one-frame misreads.
 :::
@@ -63,4 +65,4 @@ The session anchors on the **contact identity** (email, or the set of phone numb
 - Heuristics favor **Korean and English** card layouts; other languages will mostly fall back to contact fields only.
 - Stylized logos often OCR poorly — `company` may come from the legal-suffix line (주식회사 / Co., Ltd) or a line matching the email domain instead.
 - Decorative fonts and vertical layouts reduce accuracy. Treat results as **autofill hints** and let users edit.
-- `parseBusinessCard` is intentionally **not** part of `detectDocument()` — a phone number alone would make almost any text block "detect" as a business card.
+- In `detectDocument()`, a business card is the **guarded last resort**: it only detects when an **email** is present, after MRZ and card fail — a phone number alone would make almost any text block (receipts, posters) "detect" as a business card.

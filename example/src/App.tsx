@@ -10,6 +10,7 @@ import {
   type BusinessCardResult,
   type CardResult,
   type MrzResult,
+  type OcrLine,
 } from '@jieonist/vision-camera-ocr-scanner';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -58,7 +59,7 @@ export default function App() {
 
   // Capture the document once its session is confident, then freeze.
   const handleLines = useCallback(
-    (lines: string[]) => {
+    (lines: string[], lineItems?: OcrLine[]) => {
       if (__DEV__) setDebugLines(lines);
       let mrzParse: MrzResult | null = null;
       let cardParse: CardResult | null = null;
@@ -68,13 +69,15 @@ export default function App() {
       } else if (mode === 'card') {
         cardParse = parseCard(lines);
       } else if (mode === 'bizcard') {
-        bizParse = parseBusinessCard(lines);
+        // lineItems make text size a signal (the tallest line is the name).
+        bizParse = parseBusinessCard(lines, lineItems);
       } else {
-        // detectDocument covers self-validating documents (MRZ/card) only —
-        // business cards would false-positive on any text with a phone number.
-        const doc = detectDocument(lines);
+        // Self-validating documents (MRZ/card) win; a business card is the
+        // guarded fallback and only detected when an email is present.
+        const doc = detectDocument(lines, lineItems);
         if (doc?.type === 'mrz') mrzParse = doc.data;
         else if (doc?.type === 'card') cardParse = doc.data;
+        else if (doc?.type === 'bizcard') bizParse = doc.data;
       }
       if (mrzParse != null) {
         const final = mrzSession.push(mrzParse);
@@ -111,7 +114,7 @@ export default function App() {
         if (g.__ocrFrameCount % OCR_FRAME_SKIP !== 0) return;
         const ocr = scanner.scan(frame);
         if (ocr.lines.length > 0) {
-          scheduleOnRN(handleLines, ocr.lines);
+          scheduleOnRN(handleLines, ocr.lines, ocr.lineItems);
         }
       } finally {
         frame.dispose();
@@ -249,7 +252,7 @@ export default function App() {
         ? '카드 번호가 잘 보이게 비춰주세요'
         : mode === 'bizcard'
           ? '명함 전체가 잘 보이게 비춰주세요'
-          : '여권 MRZ 또는 카드를 비춰주세요';
+          : '여권 MRZ · 카드 · 명함을 비춰주세요';
   return (
     <View style={styles.container}>
       <Camera
