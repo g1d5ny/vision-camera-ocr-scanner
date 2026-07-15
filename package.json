@@ -49,6 +49,7 @@
     "react-native",
     "ios",
     "android",
+    "react-native-vision-camera",
     "vision-camera",
     "vision-camera-plugin",
     "frame-processor",
@@ -64,6 +65,7 @@
     "nitro",
     "on-device",
     "mlkit",
+    "apple-vision",
     "vision"
   ],
   "repository": {
